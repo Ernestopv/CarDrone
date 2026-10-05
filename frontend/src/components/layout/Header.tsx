@@ -31,9 +31,6 @@ export function Header({ connection, pending, onToggleConnection }: HeaderProps)
           <h1 className="text-[15px] font-medium tracking-[0.22em] text-ink">
             DRONE CONTROL
           </h1>
-          <span className="border border-caution/40 bg-caution/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold tracking-[0.14em] text-caution">
-            SIMULATED
-          </span>
         </div>
         <ConnectionStatus
           connection={connection}

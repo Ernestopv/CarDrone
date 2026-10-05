@@ -65,7 +65,7 @@ Browser (CameraView)
    │                                           entry point from CAMERA_PROXY_TARGET)
    ├── mock mode       → today's simulated placeholder (PC unchanged)
    └── ustreamer mode  → <img src="/camera/"> MJPEG feed (constant, same-origin)
-            │           LIVE FEED badge only after the first decoded frame
+            │           no overlay text once a frame decodes (nothing claimed)
             │           STREAM ERROR + bounded-backoff retry (fresh GET) while
             │           status stays streaming; honest overlays otherwise
             ↓
@@ -118,9 +118,9 @@ getCameraMode(): Promise<CameraMode>
 - **Ustreamer mode, status `streaming`.** Render `<img src="/camera/">`
   (module constant `CAMERA_STREAM_PATH = '/camera/'`). Before the first frame
   decodes, overlay `CONNECTING...`; after the image fires `load` (first frame
-  rendered), overlay `LIVE FEED` — the only point at which live video is
-  claimed. Never render the simulated placeholder or "SIMULATED STREAM" in
-  this mode.
+  rendered), remove the overlay entirely — the feed renders with no text over
+  it and nothing is claimed. Never render the simulated placeholder or
+  "SIMULATED STREAM" in this mode.
 - **Ustreamer mode, other statuses.** `offline` → `NO SIGNAL`; `connecting` →
   `CONNECTING...`; `error` → `STREAM ERROR`; no `<img>`, no simulated text.
 - **Reconnect (fresh GET).** If the `<img>` errors while status is
@@ -129,10 +129,10 @@ getCameraMode(): Promise<CameraMode>
   5s, continuing while status stays `streaming`. Retries stop when status
   departs `streaming`, on success, or on unmount; timers are cleaned up. A
   status transition back to `streaming` always resets to a fresh `GET`.
-- **Honesty.** `LIVE FEED` appears only after an actual first frame; the
-  simulated labels are unreachable in `ustreamer`; no host/IP/env values
-  exist in component code; a failed/degraded stream never impersonates a
-  live one.
+- **Honesty.** No overlay text is shown once a frame actually renders (nothing
+  is claimed over the feed); the simulated labels are unreachable in
+  `ustreamer`; no host/IP/env values exist in component code; a
+  failed/degraded stream never impersonates a live one.
 
 ## Interfaces
 
@@ -185,7 +185,7 @@ No `docker-compose.yml` change is required (the existing
 | `getCameraMode()` network/other failure | Mode resolution fails; app shows honest camera-unavailable, never simulated UI |
 | `<img>` error while status `streaming` (real mode) | `STREAM ERROR` overlay + bounded-backoff retry (fresh GET); stops when status changes or unmount |
 | Status leaves `streaming` | Feed `<img>` removed; status overlay shown; timers cleared |
-| Stream returns after failure (status → `streaming`) | Fresh `GET`; `LIVE FEED` only after a first frame renders |
+| Stream returns after failure (status → `streaming`) | Fresh `GET`; the overlay clears once a frame renders |
 | Status `streaming` but image never decodes (misconfigured upstream) | Grace error + retry; never "SIMULATED STREAM"; no permanent live claim |
 | Mock mode on PC | No `<img>` ever mounted; simulated behavior identical to today |
 
@@ -216,8 +216,8 @@ No `docker-compose.yml` change is required (the existing
 2. `CameraView` mock mode: today's simulated states and labels (existing
    assertions preserved).
 3. `CameraView` ustreamer + `streaming`: `<img src="/camera/">` mounted; no
-   simulated text; `CONNECTING...` before `load`; `LIVE FEED` after a fired
-   `load`.
+   simulated text; `CONNECTING...` before `load`; the overlay is removed after
+   a fired `load`.
 4. `CameraView` ustreamer + `offline`/`connecting`/`error`: honest overlays,
    no `<img>`.
 5. Reconnect: fired `error` on the `<img>` while `streaming` → retry remount
@@ -246,8 +246,9 @@ No `docker-compose.yml` change is required (the existing
       tests pass unchanged.
 - [x] `CameraView` in `ustreamer` mode with status `streaming` mounts
       `<img src="/camera/">` (module constant, same-origin, no host/IP/env);
-      `LIVE FEED` is shown only after the first frame (`load`); the simulated
-      placeholder and "SIMULATED STREAM" are unreachable in this mode.
+      the overlay is removed once the first frame (`load`) renders; the
+      simulated placeholder and "SIMULATED STREAM" are unreachable in this
+      mode.
 - [x] `CameraView` in `ustreamer` mode with statuses `offline`/`connecting`/
       `error` shows honest overlays (`NO SIGNAL`/`CONNECTING...`/`STREAM
       ERROR`) and no `<img>`.

@@ -1,0 +1,39 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v10.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v10.0": {
+      "DroneControl.Application/1.0.0": {
+        "dependencies": {
+          "DroneControl.Domain": "1.0.0"
+        },
+        "runtime": {
+          "DroneControl.Application.dll": {}
+        }
+      },
+      "DroneControl.Domain/1.0.0": {
+        "runtime": {
+          "DroneControl.Domain.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "DroneControl.Application/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "DroneControl.Domain/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

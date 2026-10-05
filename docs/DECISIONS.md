@@ -25,7 +25,7 @@ implementation is owned by later tasks and has not been built or run.
 
 ## D2 — One compose command; platform differences via deployment configuration
 
-- **Status:** accepted — final form implemented (Task 34); Pi runtime validation deferred to Task 36
+- **Status:** accepted — final form implemented (Task 34); Pi runtime verified (Task 36, 2026-10-05)
 - **Context:** "Same folder, `docker compose up`" on PC and Pi. Docker Compose
   cannot conditionally omit individual entries from one service's `devices` or
   `group_add` lists based on an environment variable. Conventional override
@@ -59,7 +59,7 @@ implementation is owned by later tasks and has not been built or run.
 
 ## D4 — Control plane and media plane never merge
 
-- **Status:** accepted — media side implemented (Tasks 31–33); Pi runtime verification deferred to Task 36
+- **Status:** accepted — media side implemented (Tasks 31–33); Pi runtime verified (Task 36, 2026-10-05)
 - **Context:** Drone commands are request/response JSON; video is a continuous
   stream. Mixing them would couple the critical control path to streaming.
 - **Decision:** `/api/` stays exactly today's ASP.NET contract (five endpoints
@@ -93,7 +93,7 @@ implementation is owned by later tasks and has not been built or run.
 
 ## D6 — Select a Pi-only Compose overlay through the Pi `.env`
 
-- **Status:** accepted — boundary implemented (Task 24) and unified compose finalized (Task 34); device values deferred until target inventory (Task 36)
+- **Status:** accepted — boundary implemented (Task 24), unified compose finalized (Task 34); device/group values applied from the target inventory (Task 36, 2026-10-05)
 - **Context:** Compose cannot conditionally omit individual `devices` or
   `group_add` entries from one service based on an environment value. The PC
   stack must remain device-free, and Pi-specific mappings cannot be guessed.
@@ -114,8 +114,10 @@ implementation is owned by later tasks and has not been built or run.
 
 ## D7 — Fail-safe gates real mode on external abrupt-failure protection
 
-- **Status:** accepted — software gate implemented by Task 26; external
-  mechanism itself remains NOT VERIFIED.
+- **Status:** accepted — software gate implemented by Task 26. Asserted for the
+  bench bring-up sessions (2026-10-05) with the operator present (wheels up /
+  power cut-off at hand); a documented external abrupt-failure mechanism
+  remains NOT VERIFIED.
 - **Context:** .NET shutdown handlers cannot guarantee STOP after a process
   crash, forced termination, kernel failure, Pi reboot, or power loss. No
   watchdog/electrical default has been verified in the project yet.
@@ -130,3 +132,31 @@ implementation is owned by later tasks and has not been built or run.
 - **Revisit when:** a later hardware/runtime task records the actual external
   mechanism and its Pi-runtime/real-hardware evidence; only then may the
   deployment configuration enable the flag.
+
+## D8 — Real PWM speed uses the native (no-Docker) launcher
+
+- **Status:** accepted and implemented — verified on the target (2026-10-05)
+- **Context:** Task 36 expected `GPIO/PWM REAL` from `docker compose up`. GPIO
+  direction works from the non-root container through the GPIO character device
+  (`/dev/gpiochip0`). PWM, however, is exposed only through sysfs
+  (`/sys/class/pwm/pwmchipN/…/period|duty_cycle|enable`), and Docker mounts
+  `/sys` read-only: binding the chip tree — or all of `/sys` — still returns
+  `EROFS`, so no container can write duty/period/enable. Raising privilege does
+  not change a read-only mount.
+- **Decision:** Keep the Docker stack as the default runtime (frontend +
+  backend + camera, with real GPIO direction) and deliver real **variable-speed
+  PWM** through the native launcher `scripts/run-native-pi.sh`, which runs
+  nginx + the same backend + uStreamer directly on the host with root access to
+  sysfs. This is a *hosting* difference, not a source branch: the same backend
+  graph selects the real PWM sink (`RaspberryPwmPlatform`); only the process
+  host changes. The device tree routes the PWM channels to the motor enables
+  (`dtoverlay=pwm-2chan,pin=12,func=4,pin2=13,func2=4`, Alt0).
+- **Consequences:** `docker compose up` stays the one-command story for
+  control/camera/GPIO; speed adds the native command (documented in
+  `docs/RUNBOOK-PI.md`, Paso 10). No `privileged` container, no invented
+  device. Consistent with D2/D3/D5 — deployment/configuration differs, code
+  does not. Costs: two documented ways to run the Pi stack; the native path
+  runs as root for sysfs; the deployment/sudoers setup must be maintained.
+- **Revisit when:** a non-sysfs PWM transport (a host PWM bridge exposing the
+  character device, or a supported least-privilege container mechanism) is
+  proven on the target; the native requirement can then be dropped.

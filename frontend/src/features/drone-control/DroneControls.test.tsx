@@ -10,18 +10,20 @@ interface Overrides {
 }
 
 function renderControls(overrides: Overrides = {}) {
-  const onCommand = vi.fn()
+  const onPress = vi.fn()
+  const onRelease = vi.fn()
   const onSpeedChange = vi.fn()
   render(
     <DroneControls
       connected={overrides.connected ?? false}
       requestedCommand={overrides.requestedCommand ?? 'stop'}
       speed={overrides.speed ?? 0}
-      onCommand={onCommand}
+      onPress={onPress}
+      onRelease={onRelease}
       onSpeedChange={onSpeedChange}
     />,
   )
-  return { onCommand, onSpeedChange }
+  return { onPress, onRelease, onSpeedChange }
 }
 
 const MOVEMENT = ['FORWARD', 'LEFT', 'RIGHT', 'BACKWARD']
@@ -42,12 +44,19 @@ describe('DroneControls', () => {
     }
   })
 
-  it('sends its command on click', () => {
-    const { onCommand } = renderControls({ connected: true })
-    fireEvent.click(screen.getByRole('button', { name: 'FORWARD' }))
-    expect(onCommand).toHaveBeenCalledWith('forward')
-    fireEvent.click(screen.getByRole('button', { name: 'STOP' }))
-    expect(onCommand).toHaveBeenCalledWith('stop')
+  it('presses on pointer down and releases on pointer up (hold to move)', () => {
+    const { onPress, onRelease } = renderControls({ connected: true })
+    const forward = screen.getByRole('button', { name: 'FORWARD' })
+    fireEvent.pointerDown(forward)
+    expect(onPress).toHaveBeenCalledWith('forward')
+    fireEvent.pointerUp(forward)
+    expect(onRelease).toHaveBeenCalled()
+  })
+
+  it('sends stop on the STOP button press', () => {
+    const { onPress } = renderControls({ connected: true })
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'STOP' }))
+    expect(onPress).toHaveBeenCalledWith('stop')
   })
 
   it('exposes the active command via aria-pressed', () => {

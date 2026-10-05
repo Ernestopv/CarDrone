@@ -4,8 +4,10 @@ import type { DroneCommand } from '../../types/drone'
 export interface UseDroneKeyboardControlsOptions {
   /** Shared command state — the same value the visual pad highlights. */
   requestedCommand: DroneCommand
-  /** Existing dashboard handler: owns connection checks and the service call. */
-  onCommand: (command: DroneCommand) => void
+  /** Begin holding a command (the shared press path; one-shot for `stop`). */
+  onPress: (command: DroneCommand) => void
+  /** Release the hold (sends `stop` when a movement key was held). */
+  onRelease: () => void
 }
 
 /**
@@ -28,6 +30,11 @@ const KEY_COMMANDS: Partial<Record<string, DroneCommand>> = {
 /** Keys whose browser default is page scrolling; consumed only when handled. */
 function scrollsPage(key: string): boolean {
   return key === ' ' || key.startsWith('Arrow')
+}
+
+/** The semantic command a key maps to, or null when the key is unbound. */
+export function commandForKey(key: string): DroneCommand | null {
+  return KEY_COMMANDS[key.toLowerCase()] ?? null
 }
 
 // Structural check instead of `instanceof`, so elements from another realm
@@ -61,7 +68,7 @@ export function commandForKeyboardEvent(
   // Typing stays typing: no drone command from inside an editable element.
   if (isEditableTarget(event.target)) return null
 
-  const command = KEY_COMMANDS[event.key.toLowerCase()]
+  const command = commandForKey(event.key)
   if (!command) return null
   // Redundant guard: skip a command that is already active. STOP is exempt —
   // it must stay immediately available, exactly like its always-on button.
@@ -76,14 +83,21 @@ export function commandForKeyboardEvent(
 export function handleDroneKeyDown(
   event: KeyboardEvent,
   requestedCommand: DroneCommand,
-  onCommand: (command: DroneCommand) => void,
+  onPress: (command: DroneCommand) => void,
 ): void {
   const command = commandForKeyboardEvent(event, requestedCommand)
   if (!command) return
   // Consume Space and arrow keys only while they actually drive the drone,
   // so normal page scrolling stays intact everywhere else.
   if (scrollsPage(event.key)) event.preventDefault()
-  onCommand(command)
+  onPress(command)
+}
+
+// Releasing a movement key ends the hold. Space (stop) is one-shot, so its
+// keyup is a no-op. A keyup for an unbound key is ignored.
+export function handleDroneKeyUp(event: KeyboardEvent, onRelease: () => void): void {
+  const command = commandForKey(event.key)
+  if (command !== null && command !== 'stop') onRelease()
 }
 
 // Keyboard input is only a second input method into the existing flow:
@@ -91,21 +105,31 @@ export function handleDroneKeyDown(
 // The visual buttons and the keyboard share one command handler and one state.
 export function useDroneKeyboardControls({
   requestedCommand,
-  onCommand,
+  onPress,
+  onRelease,
 }: UseDroneKeyboardControlsOptions): void {
-  // One listener for the component's lifetime, reading the latest values
-  // through this ref — re-renders (and StrictMode's double-invoked effects)
-  // never leave a duplicate listener behind.
-  const latest = useRef({ requestedCommand, onCommand })
+  // One set of listeners for the component's lifetime, reading the latest
+  // values through this ref — re-renders (and StrictMode's double-invoked
+  // effects) never leave duplicate listeners behind.
+  const latest = useRef({ requestedCommand, onPress, onRelease })
   useEffect(() => {
-    latest.current = { requestedCommand, onCommand }
+    latest.current = { requestedCommand, onPress, onRelease }
   })
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) =>
-      handleDroneKeyDown(event, latest.current.requestedCommand, latest.current.onCommand)
+      handleDroneKeyDown(event, latest.current.requestedCommand, latest.current.onPress)
+    const handleKeyUp = (event: KeyboardEvent) => handleDroneKeyUp(event, latest.current.onRelease)
+    // Losing window focus mid-hold must not leave a movement running.
+    const handleBlur = () => latest.current.onRelease()
 
     window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+    window.addEventListener('blur', handleBlur)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+      window.removeEventListener('blur', handleBlur)
+    }
   }, [])
 }

@@ -69,17 +69,17 @@ USB camera → uStreamer (MJPEG) → nginx /camera/ → browser <img>
 ```
 
 The browser always uses the **relative same-origin `/camera/`** path (no host/IP
-in React). The backend reports camera *status* over the existing
+in React). The backend reports camera _status_ over the existing
 `DroneStatus.camera` field — the wire contract is unchanged.
 
 ## 3. Runtime modes and deployment
 
 Two orthogonal runtime modes, selected **only at DI composition root**:
 
-| Key | Values | Meaning |
-| --- | --- | --- |
+| Key             | Values                                  | Meaning                                                                                      |
+| --------------- | --------------------------------------- | -------------------------------------------------------------------------------------------- |
 | `HARDWARE_MODE` | `mock` (default) \| `dry-run` \| `real` | mock = simulated; dry-run = real flow, outputs logged & suppressed; real = physical GPIO/PWM |
-| `CAMERA_MODE` | `mock` (default) \| `ustreamer` | mock = simulated camera; ustreamer = real MJPEG via `/camera/` |
+| `CAMERA_MODE`   | `mock` (default) \| `ustreamer`         | mock = simulated camera; ustreamer = real MJPEG via `/camera/`                               |
 
 One folder, one command: **`docker compose up`** on PC and Pi; the only
 difference is the folder's `.env`. Invalid/incompatible values abort startup
@@ -135,6 +135,19 @@ cp scripts/native.env.example native.env
 sudo ./scripts/run-native-pi.sh        # uStreamer + backend + nginx; --stop to stop
 ```
 
+**Hybrid workflow (recommended for development):** keep the source of truth and
+all builds on the PC, and deploy the published artifacts to the Pi over SSH.
+
+```powershell
+# On the PC (Windows): publish linux-arm64 + build frontend + copy + restart
+./scripts/deploy-pi.ps1 -PiHost 192.168.1.50
+```
+
+`scripts/deploy-pi.ps1` publishes the backend self-contained (no .NET 10 needed
+on the Pi), builds the frontend same-origin, copies both to the Pi, and restarts
+the native stack via `sudo -n` (see the passwordless-sudo note in
+`docs/RUNBOOK-PI.md`). Use `-SkipBuild` / `-SkipRestart` to narrow its scope.
+
 ## 6. Hardware
 
 - Raspberry Pi 4 (a **Raspberry Pi 4 Model B, Ubuntu 22.04 arm64** on the current
@@ -144,7 +157,7 @@ sudo ./scripts/run-native-pi.sh        # uStreamer + backend + nginx; --stop to 
 - Physical wiring, PWM limits and motor behavior are recorded in
   `docs/hardware/WIRING.md` and are **operator evidence** — never assumed.
 - Verification ladder (normative): `implemented → built → mock-tested →
-  dry-run-tested → Pi-runtime-verified → real-hardware-verified`. Anything not
+dry-run-tested → Pi-runtime-verified → real-hardware-verified`. Anything not
   physically exercised stays `NOT VERIFIED`.
 
 ## 7. Development workflow (Spec-Driven Development)
@@ -164,11 +177,15 @@ validation).
   fail-safe software supervision, dry-run mode, motor direction + PWM mapping
   (software), real GPIO sink (libgpiod), camera probe + status overlay,
   `/camera/` proxy, uStreamer container, unified compose + Pi `.env`.
-- Verified on the target Pi: stack runs, camera MJPEG pipeline, GPIO container
-  access (non-root), motor direction over libgpiod.
-- `NOT VERIFIED` (deferred / needs hardware evidence): real motor actuation
-  end-to-end, variable speed via PWM (sysfs routing + permissions), full Pi
-  runtime sign-off. See `docs/hardware/raspberry-pi-inventory.md`.
+- Verified on the target Pi: native (no-Docker) full stack (nginx + backend +
+  uStreamer), camera MJPEG pipeline, GPIO container access (non-root),
+  **real GPIO motor direction** (all five commands operator-confirmed),
+  **variable speed via PWM** (ENA/ENB on BCM 12/13 at 20 kHz; speeds
+  25/60/100 operator-confirmed) and the hybrid PC→Pi deploy
+  (`scripts/deploy-pi.ps1`).
+- `NOT VERIFIED` (deferred / needs hardware evidence): PWM minimum-duty
+  threshold and duty-0 rest/coast/brake behavior, electrical limits, full Pi
+  runtime sign-off. See `docs/hardware/WIRING.md`.
 
 ## 9. Development tooling (OpenCode + skills)
 
@@ -180,15 +197,15 @@ ad-hoc prompting. Code is produced through the Spec-Driven Development workflow
 Skills actually used on this project (kept under `.agents/skills/` and
 `.opencode/commands/skills/`):
 
-| Skill | Used for |
-| --- | --- |
+| Skill                     | Used for                                                                                                             |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | `spec-driven-development` | the workflow itself — `/plan-spec` → `/spec` → validate; backlog lifecycle; `NOT VERIFIED` / `BLOCKED` honesty rules |
-| `dotnet` | C# / ASP.NET Core conventions — layering, DI composition, configuration, xUnit tests |
-| `docker` | multi-stage images, `.dockerignore`, Compose, arm64 builds, orchestrator-level health probes |
-| `raspberry-pi` | Pi runtime — GPIO/PWM, camera/uStreamer, Linux device access, hardware permissions |
-| `react` | React + TypeScript UI patterns and component structure |
-| `frontend-design` | visual design direction for the dashboard |
-| `web-design-guidelines` | UI/accessibility review of the dashboard |
+| `dotnet`                  | C# / ASP.NET Core conventions — layering, DI composition, configuration, xUnit tests                                 |
+| `docker`                  | multi-stage images, `.dockerignore`, Compose, arm64 builds, orchestrator-level health probes                         |
+| `raspberry-pi`            | Pi runtime — GPIO/PWM, camera/uStreamer, Linux device access, hardware permissions                                   |
+| `react`                   | React + TypeScript UI patterns and component structure                                                               |
+| `frontend-design`         | visual design direction for the dashboard                                                                            |
+| `web-design-guidelines`   | UI/accessibility review of the dashboard                                                                             |
 
 ### Commands (`.opencode/commands/`)
 
@@ -196,19 +213,19 @@ The day-to-day workflow is driven by project commands kept in
 **`.opencode/commands/`** (the `skills/` subfolder holds the prompt-side skill
 descriptions):
 
-| Command | File | What it does |
-| --- | --- | --- |
-| `/plan-spec` | [`plan-spec.md`](.opencode/commands/plan-spec.md) | create or update a **specification only** — no code |
-| `/spec` | [`spec.md`](.opencode/commands/spec.md) | implement exactly **one** active specification and validate it |
-| `/audit-docs` | [`audit-docs.md`](.opencode/commands/audit-docs.md) | **audit** documentation against the backlog, specs, commands and skills; flag contradictions and rules living in the wrong place |
-| `/optimize-docs` | [`optimize-docs.md`](.opencode/commands/optimize-docs.md) | **optimize** the specs and docs — consolidate, remove duplication, and realign with the skills |
+| Command          | File                                                      | What it does                                                                                                                     |
+| ---------------- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `/plan-spec`     | [`plan-spec.md`](.opencode/commands/plan-spec.md)         | create or update a **specification only** — no code                                                                              |
+| `/spec`          | [`spec.md`](.opencode/commands/spec.md)                   | implement exactly **one** active specification and validate it                                                                   |
+| `/audit-docs`    | [`audit-docs.md`](.opencode/commands/audit-docs.md)       | **audit** documentation against the backlog, specs, commands and skills; flag contradictions and rules living in the wrong place |
+| `/optimize-docs` | [`optimize-docs.md`](.opencode/commands/optimize-docs.md) | **optimize** the specs and docs — consolidate, remove duplication, and realign with the skills                                   |
 
 `/plan-spec` and `/spec` drive implementation; `/audit-docs` and
 `/optimize-docs` were used to audit and optimize the specification set and the
 documentation, keeping them consistent and lean.
 
 The agent selects the **minimum set** of skills that the task's domain requires
-— skills define *how*, the specification defines *what*.
+— skills define _how_, the specification defines _what_.
 
 ## 10. Documentation map
 
@@ -223,3 +240,11 @@ The agent selects the **minimum set** of skills that the task's domain requires
 - `scripts/run-native-pi.sh` — native (no-Docker) full-stack launcher
 - `tasks/BACKLOG.md` — roadmap and task statuses
 - `specs/` — one specification per feature/task
+
+## UI Interface
+
+![alt text](pics/ui-interface.png)
+
+## Hardware
+
+![alt text](pics/drone.jpg)

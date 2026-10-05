@@ -62,9 +62,6 @@ export function TelemetryPanel({ status }: TelemetryPanelProps) {
           <StatusIndicator label={camera.label} tone={camera.tone} />
         </TelemetryRow>
       </dl>
-      <p className="mt-4 border-t border-rule pt-3 text-[12px] leading-relaxed text-ink-mute">
-        Simulated data — commands never reach hardware.
-      </p>
     </Panel>
   )
 }

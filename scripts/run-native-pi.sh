@@ -64,6 +64,8 @@ done
 : "${CAMERA_RESOLUTION:=1280x720}"
 : "${CAMERA_FPS:=15}"
 : "${CAMERA_QUALITY:=80}"
+: "${CAMERA_BUFFERS:=1}"
+: "${CAMERA_WORKERS:=1}"
 : "${WWW_ROOT:=/var/www/cardrone}"
 
 export HARDWARE_MODE CAMERA_MODE
@@ -92,13 +94,37 @@ echo "   HARDWARE_MODE=$HARDWARE_MODE  CAMERA_MODE=$CAMERA_MODE  GPIO_DEVICE=$GP
 if [ "$CAMERA_MODE" = "ustreamer" ]; then
   if command -v ustreamer >/dev/null 2>&1; then
     echo "== uStreamer :$USTREAMER_PORT ($CAMERA_DEVICE) =="
-    ustreamer --host 127.0.0.1 --port "$USTREAMER_PORT" --device "$CAMERA_DEVICE" \
+    # --buffers 1 (single device buffer) and --tcp-nodelay (disable Nagle on the
+    # stream socket) keep the MJPEG latency as low as the pipeline allows.
+    nohup ustreamer --host 127.0.0.1 --port "$USTREAMER_PORT" --device "$CAMERA_DEVICE" \
       --format "$CAMERA_FORMAT" --resolution "$CAMERA_RESOLUTION" \
       --desired-fps "$CAMERA_FPS" --quality "$CAMERA_QUALITY" \
-      > "$ROOT/.native-ustreamer.log" 2>&1 &
+      --buffers "$CAMERA_BUFFERS" --workers "$CAMERA_WORKERS" --tcp-nodelay \
+      < /dev/null > "$ROOT/.native-ustreamer.log" 2>&1 &
     echo $! > "$PIDDIR/ustreamer.pid"
   else
     echo "AVISO: 'ustreamer' no instalado (sudo apt-get install -y ustreamer). CAMERA quedará fuera de línea."
+  fi
+fi
+
+# --- 3b) Motor enable (ENA/ENB) OPCIONAL ---
+# Si MOTOR_ENABLE_PINS está definido (p.ej. "12,13"), se mantiene en ALTO
+# mientras el stack corre, para habilitar el L298N cuando ENA/ENB no llevan
+# puente físico. Es config-driven: sin valor no se toca ningún pin.
+# Requiere gpioset (paquete gpiod). El proceso se para con --stop.
+if [ -n "${MOTOR_ENABLE_PINS:-}" ]; then
+  command -v gpioset >/dev/null 2>&1 || echo "AVISO: falta gpioset (sudo apt-get install -y gpiod); no se habilitan motores."
+  _set=""
+  for _pin in $(echo "$MOTOR_ENABLE_PINS" | tr ',' ' '); do
+    _set="$_set $_pin=1"
+  done
+  if command -v gpioset >/dev/null 2>&1; then
+    echo "== motor enable (gpioset -m signal gpiochip0$_set) =="
+    # -m signal mantiene las líneas hasta recibir SIGTERM/SIGINT (--stop las libera).
+    # -m wait NO sirve aquí: con stdin en /dev/null recibe EOF y sale de inmediato.
+    # shellcheck disable=SC2086
+    nohup gpioset -m signal gpiochip0 $_set < /dev/null > "$ROOT/.native-motorenable.log" 2>&1 &
+    echo $! > "$PIDDIR/motorenable.pid"
   fi
 fi
 
@@ -109,6 +135,9 @@ if [ ! -f "$ROOT/frontend/dist/index.html" ]; then
   ( cd frontend && npm ci && VITE_API_BASE_URL= npm run build )
 fi
 mkdir -p "$WWW_ROOT"
+# Drop stale fingerprinted bundles so old assets (and stale API bases baked into
+# them) cannot linger; index.html always points at the current hash.
+rm -rf "$WWW_ROOT/assets"
 cp -a "$ROOT/frontend/dist/." "$WWW_ROOT/"
 chmod -R a+rX "$WWW_ROOT"
 
@@ -119,17 +148,22 @@ printf '{"mode":"%s"}\n' "$_camera_mode" > "$WWW_ROOT/camera-mode.json"
 
 # --- 5) Backend ---
 echo "== backend :$BACKEND_PORT =="
+# IMPORTANTE: el binario debe ejecutarse con CWD = su carpeta de publish; si no,
+# ASP.NET no encuentra appsettings.json (content root por defecto) y la sección
+# GPIO queda vacía -> aborta en modo real. El `exec` mantiene el PID estable.
 SELF="$ROOT/backend/publish/DroneControl.Api"
 DLL="$ROOT/backend/publish/DroneControl.Api.dll"
+APP_DIR="$ROOT/backend/publish"
+LOG="$ROOT/.native-backend.log"
 if [ -x "$SELF" ]; then
   echo "   ejecutable = backend/publish/DroneControl.Api (self-contained, sin dotnet del sistema)"
-  "$SELF" > "$ROOT/.native-backend.log" 2>&1 &
+  ( cd "$APP_DIR" && exec nohup ./DroneControl.Api ) < /dev/null > "$LOG" 2>&1 &
 elif [ -f "$DLL" ]; then
   echo "   ejecutable = dotnet backend/publish/DroneControl.Api.dll"
-  dotnet "$DLL" > "$ROOT/.native-backend.log" 2>&1 &
+  ( cd "$APP_DIR" && exec nohup dotnet DroneControl.Api.dll ) < /dev/null > "$LOG" 2>&1 &
 else
   echo "   ejecutable = dotnet run (requiere SDK .NET 10)"
-  dotnet run --project "$ROOT/backend/src/DroneControl.Api" -c Release > "$ROOT/.native-backend.log" 2>&1 &
+  nohup dotnet run --project "$ROOT/backend/src/DroneControl.Api" -c Release < /dev/null > "$LOG" 2>&1 &
 fi
 echo $! > "$PIDDIR/backend.pid"
 

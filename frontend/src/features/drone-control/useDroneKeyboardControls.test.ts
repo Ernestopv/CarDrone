@@ -1,8 +1,10 @@
 import { renderHook } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import {
+  commandForKey,
   commandForKeyboardEvent,
   handleDroneKeyDown,
+  handleDroneKeyUp,
   useDroneKeyboardControls,
 } from './useDroneKeyboardControls'
 
@@ -122,19 +124,51 @@ describe('handleDroneKeyDown', () => {
   })
 })
 
+describe('commandForKey / handleDroneKeyUp', () => {
+  it('maps keys case-insensitively and returns null for unbound keys', () => {
+    expect(commandForKey('W')).toBe('forward')
+    expect(commandForKey('ArrowLeft')).toBe('left')
+    expect(commandForKey(' ')).toBe('stop')
+    expect(commandForKey('q')).toBeNull()
+  })
+
+  it('releases only on a movement keyup (Space and unbound keys are no-ops)', () => {
+    const onRelease = vi.fn()
+    handleDroneKeyUp(new KeyboardEvent('keyup', { key: 'w' }), onRelease)
+    expect(onRelease).toHaveBeenCalledTimes(1)
+    handleDroneKeyUp(new KeyboardEvent('keyup', { key: ' ' }), onRelease)
+    handleDroneKeyUp(new KeyboardEvent('keyup', { key: 'q' }), onRelease)
+    expect(onRelease).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('useDroneKeyboardControls', () => {
-  it('drives onCommand from one window listener and removes it on unmount', () => {
-    const onCommand = vi.fn()
+  it('presses on keydown, releases on keyup/blur, and cleans up on unmount', () => {
+    const onPress = vi.fn()
+    const onRelease = vi.fn()
     const { unmount } = renderHook(() =>
-      useDroneKeyboardControls({ requestedCommand: 'stop', onCommand }),
+      useDroneKeyboardControls({ requestedCommand: 'stop', onPress, onRelease }),
     )
 
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'w' }))
-    expect(onCommand).toHaveBeenCalledTimes(1)
-    expect(onCommand).toHaveBeenCalledWith('forward')
+    expect(onPress).toHaveBeenCalledTimes(1)
+    expect(onPress).toHaveBeenCalledWith('forward')
+
+    window.dispatchEvent(new KeyboardEvent('keyup', { key: 'w' }))
+    expect(onRelease).toHaveBeenCalledTimes(1)
+
+    // Space (stop) is one-shot: its keyup must not trigger a release.
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }))
+    window.dispatchEvent(new KeyboardEvent('keyup', { key: ' ' }))
+    expect(onRelease).toHaveBeenCalledTimes(1)
+
+    // Losing window focus mid-hold releases.
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }))
+    window.dispatchEvent(new Event('blur'))
+    expect(onRelease).toHaveBeenCalledTimes(2)
 
     unmount()
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }))
-    expect(onCommand).toHaveBeenCalledTimes(1)
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'd' }))
+    expect(onPress).toHaveBeenCalledTimes(3)
   })
 })

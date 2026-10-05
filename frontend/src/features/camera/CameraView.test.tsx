@@ -98,7 +98,7 @@ describe('CameraView — ustreamer mode', () => {
     expect(document.querySelectorAll('img').length).toBe(0)
   })
 
-  it('shows LIVE FEED only after a first frame renders', () => {
+  it('drops the overlay once a first frame renders (no text over the feed)', () => {
     const { container } = render(
       <CameraView status="streaming" confirmedCommand="forward" speed={40} cameraMode="ustreamer" />,
     )
@@ -107,8 +107,10 @@ describe('CameraView — ustreamer mode', () => {
     expect(img).toBeTruthy()
 
     fireEvent.load(img!)
-    expect(screen.getByText('LIVE FEED')).toBeTruthy()
-    expect(screen.getByRole('status').textContent).toBe('LIVE FEED')
+    // Live: the feed renders with no overlay text at all.
+    expect(screen.queryByText('LIVE FEED')).toBeNull()
+    expect(screen.queryByText('CONNECTING...')).toBeNull()
+    expect(screen.queryByRole('status')).toBeNull()
   })
 
   it('reconnects with backoff after a feed error while streaming', () => {
@@ -131,7 +133,9 @@ describe('CameraView — ustreamer mode', () => {
     expect(second).not.toBe(first)
 
     fireEvent.load(second!)
-    expect(screen.getByText('LIVE FEED')).toBeTruthy()
+    // Live again: the grace error overlay is gone.
+    expect(screen.queryByText('STREAM ERROR')).toBeNull()
+    expect(container.querySelector('img')).toBeTruthy()
   })
 
   it('stops retrying when the status departs streaming', () => {

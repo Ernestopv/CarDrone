@@ -1,0 +1,16 @@
+D:\IADevelopment\CarDrone\backend\src\DroneControl.Application\bin\Release\net10.0\DroneControl.Application.deps.json
+D:\IADevelopment\CarDrone\backend\src\DroneControl.Application\bin\Release\net10.0\DroneControl.Application.dll
+D:\IADevelopment\CarDrone\backend\src\DroneControl.Application\bin\Release\net10.0\DroneControl.Application.pdb
+D:\IADevelopment\CarDrone\backend\src\DroneControl.Application\bin\Release\net10.0\DroneControl.Domain.dll
+D:\IADevelopment\CarDrone\backend\src\DroneControl.Application\bin\Release\net10.0\DroneControl.Domain.pdb
+D:\IADevelopment\CarDrone\backend\src\DroneControl.Application\obj\Release\net10.0\DroneControl.Application.csproj.AssemblyReference.cache
+D:\IADevelopment\CarDrone\backend\src\DroneControl.Application\obj\Release\net10.0\DroneControl.Application.GeneratedMSBuildEditorConfig.editorconfig
+D:\IADevelopment\CarDrone\backend\src\DroneControl.Application\obj\Release\net10.0\DroneControl.Application.AssemblyInfoInputs.cache
+D:\IADevelopment\CarDrone\backend\src\DroneControl.Application\obj\Release\net10.0\DroneControl.Application.AssemblyInfo.cs
+D:\IADevelopment\CarDrone\backend\src\DroneControl.Application\obj\Release\net10.0\DroneControl.Application.csproj.CoreCompileInputs.cache
+D:\IADevelopment\CarDrone\backend\src\DroneControl.Application\obj\Release\net10.0\DroneControl.Application.sourcelink.json
+D:\IADevelopment\CarDrone\backend\src\DroneControl.Application\obj\Release\net10.0\DroneCon.3D7A8F77.Up2Date
+D:\IADevelopment\CarDrone\backend\src\DroneControl.Application\obj\Release\net10.0\DroneControl.Application.dll
+D:\IADevelopment\CarDrone\backend\src\DroneControl.Application\obj\Release\net10.0\refint\DroneControl.Application.dll
+D:\IADevelopment\CarDrone\backend\src\DroneControl.Application\obj\Release\net10.0\DroneControl.Application.pdb
+D:\IADevelopment\CarDrone\backend\src\DroneControl.Application\obj\Release\net10.0\ref\DroneControl.Application.dll

@@ -192,15 +192,23 @@ arrow keys normally.
 
 ---
 
-## Repeated Key Events
+## Held Keys and the Liveness Window
 
-Browser keyboard events may repeat while a key is held down.
+Browser keyboard events may repeat while a key is held down. Auto-repeat itself
+is ignored (it carries no new intent), but a held movement key must not let the
+command expire: the backend safety path bounds every movement with a liveness
+window (`Safety:CommandTimeoutMilliseconds`, default `2000` ms) and drives a
+semantic STOP when no fresh command arrives.
 
-Avoid sending unnecessary repeated commands if the same command is already active.
+While a movement key (or on-screen button) is held, the frontend re-asserts the
+command at a fixed interval kept below that window (`COMMAND_REPEAT_MS`, 1000 ms)
+and sends a single `stop` on keyup (or when the window loses focus). This keeps
+the drone moving for as long as the control is held **without** weakening the
+safety timeout: if the browser, tab, or network dies, the movement still expires
+on its own.
 
-Do not create a complex command queue.
-
-A simple guard against redundant repeated commands is sufficient.
+Do not create a complex command queue; one heartbeat for the currently held
+command is enough.
 
 ---
 
@@ -420,7 +428,7 @@ W
 
 Expected:
 
-The application does not generate unnecessary duplicate command operations.
+`forward` keeps being re-asserted within the liveness window, so the drone keeps moving until `W` is released; releasing sends `stop`.
 
 ---
 
@@ -496,7 +504,7 @@ No drone movement command is sent.
 - [x] Arrow keys do not cause unwanted scrolling when used as movement controls.
 - [x] Keyboard listeners are cleaned up correctly.
 - [x] Duplicate listeners are not introduced.
-- [x] Unnecessary repeated commands are avoided.
+- [x] A held movement key is re-asserted within the liveness window and releases to `stop`; auto-repeat alone is ignored.
 - [x] Visual controls remain usable.
 - [x] Implementation works in browsers on Windows and Linux.
 - [x] Build passes.

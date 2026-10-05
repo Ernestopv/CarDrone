@@ -8,7 +8,10 @@ interface DroneControlsProps {
   /** The pad highlights the command the user has requested. */
   requestedCommand: DroneCommand
   speed: number
-  onCommand: (command: DroneCommand) => void
+  /** Press/begin a command hold (one-shot for `stop`). */
+  onPress: (command: DroneCommand) => void
+  /** Release the hold (sends `stop` when a movement was held). */
+  onRelease: () => void
   onSpeedChange: (speed: number) => void
 }
 
@@ -39,7 +42,8 @@ export function DroneControls({
   connected,
   requestedCommand,
   speed,
-  onCommand,
+  onPress,
+  onRelease,
   onSpeedChange,
 }: DroneControlsProps) {
   return (
@@ -55,7 +59,8 @@ export function DroneControls({
             className={position}
             active={requestedCommand === buttonCommand}
             disabled={!connected && buttonCommand !== 'stop'}
-            onCommand={onCommand}
+            onPress={onPress}
+            onRelease={onRelease}
           />
         ))}
       </div>

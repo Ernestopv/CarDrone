@@ -1,8 +1,11 @@
 {
   "version": 2,
-  "dgSpecHash": "GzFVLGZl/D0=",
+  "dgSpecHash": "1Tgl4iiA0fg=",
   "success": true,
   "projectFilePath": "D:\\IADevelopment\\CarDrone\\backend\\src\\DroneControl.Application\\DroneControl.Application.csproj",
-  "expectedPackageFiles": [],
+  "expectedPackageFiles": [
+    "C:\\Users\\netho\\.nuget\\packages\\microsoft.netcore.app.runtime.linux-arm64\\10.0.12\\microsoft.netcore.app.runtime.linux-arm64.10.0.12.nupkg.sha512",
+    "C:\\Users\\netho\\.nuget\\packages\\microsoft.aspnetcore.app.runtime.linux-arm64\\10.0.12\\microsoft.aspnetcore.app.runtime.linux-arm64.10.0.12.nupkg.sha512"
+  ],
   "logs": []
 }

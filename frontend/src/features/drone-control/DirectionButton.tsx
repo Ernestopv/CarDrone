@@ -8,7 +8,8 @@ interface DirectionButtonProps {
   disabled: boolean
   variant?: 'direction' | 'stop'
   className?: string
-  onCommand: (command: DroneCommand) => void
+  onPress: (command: DroneCommand) => void
+  onRelease: () => void
 }
 
 const BASE_CLASSES =
@@ -34,14 +35,40 @@ export function DirectionButton({
   disabled,
   variant = 'direction',
   className = '',
-  onCommand,
+  onPress,
+  onRelease,
 }: DirectionButtonProps) {
   const classes = VARIANT_CLASSES[variant]
 
   return (
     <button
       type="button"
-      onClick={() => onCommand(command)}
+      // Hold-to-move: press starts (and keeps re-asserting) the command;
+      // release stops. Pointer capture keeps the matching pointerup on this
+      // button even when the finger/cursor leaves it before the user lets go.
+      onPointerDown={(event) => {
+        const target = event.currentTarget
+        if (typeof target.setPointerCapture === 'function' && typeof event.pointerId === 'number') {
+          target.setPointerCapture(event.pointerId)
+        }
+        onPress(command)
+      }}
+      onPointerUp={() => onRelease()}
+      onPointerCancel={() => onRelease()}
+      // Keyboard activation of a focused button: Enter holds the command while
+      // pressed; Space is the global STOP key (handled by the keyboard hook).
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault()
+          onPress(command)
+        }
+      }}
+      onKeyUp={(event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault()
+          onRelease()
+        }
+      }}
       disabled={disabled}
       aria-pressed={active}
       className={`${BASE_CLASSES} ${active ? classes.active : classes.idle} ${className}`}

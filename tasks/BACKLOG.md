@@ -1693,10 +1693,12 @@ specs/deployment/pc-mode.md
 
 ---
 
+## Task 36 — Raspberry Pi Runtime Mode
+
 Status:
 
 ```text
-BLOCKED
+COMPLETED
 ```
 
 Goals:
@@ -1743,6 +1745,17 @@ Specification:
 specs/deployment/raspberry-mode.md
 ```
 
+Result (2026-10-05) — verified on the real target (Raspberry Pi 4 Rev 1.1, Ubuntu 22.04 arm64):
+
+- **Docker Compose Pi mode**: backend + frontend start; the hardware provider selects the real implementation (`HARDWARE_MODE=real`); the camera service selects uStreamer (`CAMERA_MODE=ustreamer`).
+- **Camera**: uStreamer MJPEG reaches the browser through nginx `/camera/`; `camera-mode.json` resolves the mode.
+- **GPIO**: real direction control over libgpiod — all five commands (`forward`/`backward`/`left`/`right`/`stop`) operator-confirmed; non-root container access verified. Recorded in `docs/hardware/WIRING.md`.
+- **GPIO/camera permissions**: documented in `docs/hardware/raspberry-pi-inventory.md`.
+- **PWM speed (real)**: delivered by the **native launcher** (`scripts/run-native-pi.sh`) because the container cannot write `/sys` (Docker mounts it read-only) — a runtime/deployment difference, not a source-code change. ENA/ENB are driven by `PWM1`/`PWM2` (BCM 12/13) at 20 kHz; speeds verified. See `docs/hardware/WIRING.md` (PWM speed envelope) and `docs/RUNBOOK-PI.md` (Paso 10).
+- Still `NOT VERIFIED` (non-blocking, recorded in `docs/hardware/WIRING.md`): exact PWM duty-0 rest/coast/brake behavior and motor/L298N electrical limits.
+
+Note: the referenced specification `specs/deployment/raspberry-mode.md` was never written; the verification record lives here, in `docs/hardware/WIRING.md`, `docs/RUNBOOK-PI.md`, and `MEMORY.md`.
+
 ---
 
 # Phase 9 — End-to-End Validation
@@ -1752,7 +1765,7 @@ specs/deployment/raspberry-mode.md
 Status:
 
 ```text
-PENDING
+NEXT
 ```
 
 Goals:

@@ -74,6 +74,80 @@
           "bin/placeholder/DroneControl.Infrastructure.dll": {}
         }
       }
+    },
+    "net10.0/linux-arm64": {
+      "Microsoft.AspNetCore.OpenApi/10.0.12": {
+        "type": "package",
+        "dependencies": {
+          "Microsoft.OpenApi": "[2.12.0, 3.0.0)"
+        },
+        "compile": {
+          "lib/net10.0/Microsoft.AspNetCore.OpenApi.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net10.0/Microsoft.AspNetCore.OpenApi.dll": {
+            "related": ".xml"
+          }
+        },
+        "frameworkReferences": [
+          "Microsoft.AspNetCore.App"
+        ],
+        "build": {
+          "build/Microsoft.AspNetCore.OpenApi.targets": {}
+        }
+      },
+      "Microsoft.OpenApi/2.12.0": {
+        "type": "package",
+        "compile": {
+          "lib/net8.0/Microsoft.OpenApi.dll": {
+            "related": ".pdb;.xml"
+          }
+        },
+        "runtime": {
+          "lib/net8.0/Microsoft.OpenApi.dll": {
+            "related": ".pdb;.xml"
+          }
+        }
+      },
+      "DroneControl.Application/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v10.0",
+        "dependencies": {
+          "DroneControl.Domain": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/DroneControl.Application.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/DroneControl.Application.dll": {}
+        }
+      },
+      "DroneControl.Domain/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v10.0",
+        "compile": {
+          "bin/placeholder/DroneControl.Domain.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/DroneControl.Domain.dll": {}
+        }
+      },
+      "DroneControl.Infrastructure/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v10.0",
+        "dependencies": {
+          "DroneControl.Application": "1.0.0",
+          "DroneControl.Domain": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/DroneControl.Infrastructure.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/DroneControl.Infrastructure.dll": {}
+        }
+      }
     }
   },
   "libraries": {
@@ -212,6 +286,20 @@
         ],
         "assetTargetFallback": true,
         "warn": true,
+        "downloadDependencies": [
+          {
+            "name": "Microsoft.AspNetCore.App.Runtime.linux-arm64",
+            "version": "[10.0.12, 10.0.12]"
+          },
+          {
+            "name": "Microsoft.NETCore.App.Host.linux-arm64",
+            "version": "[10.0.12, 10.0.12]"
+          },
+          {
+            "name": "Microsoft.NETCore.App.Runtime.linux-arm64",
+            "version": "[10.0.12, 10.0.12]"
+          }
+        ],
         "frameworkReferences": {
           "Microsoft.AspNetCore.App": {
             "privateAssets": "none"
@@ -635,6 +723,11 @@
           "System.Xml.XPath": "(,4.3.32767]",
           "System.Xml.XPath.XDocument": "(,5.0.32767]"
         }
+      }
+    },
+    "runtimes": {
+      "linux-arm64": {
+        "#import": []
       }
     }
   }

@@ -5,6 +5,7 @@ import { MockScenariosPanel } from './features/connection/MockScenariosPanel'
 import { SystemAlerts } from './features/connection/SystemAlerts'
 import { SystemStatusPanel } from './features/connection/SystemStatusPanel'
 import { DroneControls } from './features/drone-control/DroneControls'
+import { useCommandHold } from './features/drone-control/useCommandHold'
 import { useDroneKeyboardControls } from './features/drone-control/useDroneKeyboardControls'
 import { TelemetryPanel } from './features/telemetry/TelemetryPanel'
 import { useDroneDashboard } from './hooks/useDroneDashboard'
@@ -14,6 +15,11 @@ import type { CameraMode } from './types/drone'
 export function App() {
   const { status, connectionPending, toggleConnection, sendCommand, changeSpeed, runScenario } =
     useDroneDashboard()
+  const connected = status.connection === 'connected'
+  // Hold-to-move: while a direction control (button or key) is held the command
+  // is re-asserted every COMMAND_REPEAT_MS, so the backend liveness window
+  // never expires; releasing (or losing the connection) sends a single stop.
+  const { press, release } = useCommandHold(sendCommand, connected)
   // Camera mode is a runtime, same-origin capability (Task 33;
   // specs/integration/camera-stream.md). Resolved once at startup; a failed
   // resolution surfaces as camera-unavailable, never as a simulated feed.
@@ -37,9 +43,9 @@ export function App() {
   // visual buttons call; no keyboard-specific state exists anywhere.
   useDroneKeyboardControls({
     requestedCommand: status.requestedCommand,
-    onCommand: sendCommand,
+    onPress: press,
+    onRelease: release,
   })
-  const connected = status.connection === 'connected'
 
   return (
     <AppShell
@@ -62,7 +68,8 @@ export function App() {
               connected={connected}
               requestedCommand={status.requestedCommand}
               speed={status.speed}
-              onCommand={sendCommand}
+              onPress={press}
+              onRelease={release}
               onSpeedChange={changeSpeed}
             />
           </div>

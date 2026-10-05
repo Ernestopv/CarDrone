@@ -89,12 +89,9 @@ function liveMessage(status: CameraStatus, phase: string): CameraMessage {
       }
     case 'streaming':
       if (phase === 'live') {
-        return {
-          label: 'CAMERA ACTIVE',
-          text: 'LIVE FEED',
-          toneClass: 'text-ok',
-          hint: 'Live video — the stream is rendering. No physical verification is implied.',
-        }
+        // Live feed: no overlay text at all — the rendering frames are the only
+        // indicator, so nothing above the feed is claimed.
+        return { label: '', text: '', toneClass: '', hint: '' }
       }
       if (phase === 'error') {
         return {
@@ -204,18 +201,20 @@ export function CameraView({
           className="absolute right-2 bottom-10 h-4 w-4 border-b border-r border-hud/40"
         />
 
-        <div className="absolute inset-0 flex flex-col items-center justify-center px-6 pb-8 text-center">
-          <p className="font-mono text-[11px] tracking-[0.3em] text-ink-mute">{message.label}</p>
-          <p
-            role="status"
-            className={`mt-2 font-mono text-xl font-semibold tracking-[0.2em] sm:text-2xl ${message.toneClass}${pulseClass}`}
-          >
-            {message.text}
-          </p>
-          <p className="mt-3 max-w-[42ch] text-[13px] leading-relaxed text-ink-mute">
-            {message.hint}
-          </p>
-        </div>
+        {message.text !== '' && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center px-6 pb-8 text-center">
+            <p className="font-mono text-[11px] tracking-[0.3em] text-ink-mute">{message.label}</p>
+            <p
+              role="status"
+              className={`mt-2 font-mono text-xl font-semibold tracking-[0.2em] sm:text-2xl ${message.toneClass}${pulseClass}`}
+            >
+              {message.text}
+            </p>
+            <p className="mt-3 max-w-[42ch] text-[13px] leading-relaxed text-ink-mute">
+              {message.hint}
+            </p>
+          </div>
+        )}
 
         {/* OSD bar: the live readouts a pilot watches over the feed. */}
         <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-4 border-t border-rule/70 bg-night/75 px-3 py-2">

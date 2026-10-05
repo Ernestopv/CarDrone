@@ -1,11 +1,14 @@
 {
   "version": 2,
-  "dgSpecHash": "eUt9jrkEx3M=",
+  "dgSpecHash": "4QWsPd2qIjc=",
   "success": true,
   "projectFilePath": "D:\\IADevelopment\\CarDrone\\backend\\src\\DroneControl.Api\\DroneControl.Api.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\netho\\.nuget\\packages\\microsoft.aspnetcore.openapi\\10.0.12\\microsoft.aspnetcore.openapi.10.0.12.nupkg.sha512",
-    "C:\\Users\\netho\\.nuget\\packages\\microsoft.openapi\\2.12.0\\microsoft.openapi.2.12.0.nupkg.sha512"
+    "C:\\Users\\netho\\.nuget\\packages\\microsoft.openapi\\2.12.0\\microsoft.openapi.2.12.0.nupkg.sha512",
+    "C:\\Users\\netho\\.nuget\\packages\\microsoft.netcore.app.runtime.linux-arm64\\10.0.12\\microsoft.netcore.app.runtime.linux-arm64.10.0.12.nupkg.sha512",
+    "C:\\Users\\netho\\.nuget\\packages\\microsoft.aspnetcore.app.runtime.linux-arm64\\10.0.12\\microsoft.aspnetcore.app.runtime.linux-arm64.10.0.12.nupkg.sha512",
+    "C:\\Users\\netho\\.nuget\\packages\\microsoft.netcore.app.host.linux-arm64\\10.0.12\\microsoft.netcore.app.host.linux-arm64.10.0.12.nupkg.sha512"
   ],
   "logs": []
 }

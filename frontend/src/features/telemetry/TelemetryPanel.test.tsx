@@ -43,8 +43,4 @@ describe('TelemetryPanel', () => {
     expect(screen.getByText('STREAMING')).toBeTruthy()
   })
 
-  it('marks the data as simulated', () => {
-    render(<TelemetryPanel status={createInitialDroneStatus()} />)
-    expect(screen.getByText(/commands never reach hardware/)).toBeTruthy()
-  })
 })

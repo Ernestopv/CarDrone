@@ -124,3 +124,49 @@ Todo lo que no se verificó en este arranque queda marcado `NOT VERIFIED`
 (actuación real, acceso en contenedor a gpiochip/Video, MJPEG real, detalles
 OS/kernel). Rellena estos campos solo con evidencia real; el backlog mantiene
 el Task 36 `BLOCKED` hasta entonces.
+
+## Paso 10 — Alternativa nativa (sin Docker) y despliegue híbrido
+
+Cuando se necesita escribir `/sys/class/pwm` (velocidad PWM real), el
+contenedor no sirve: Docker monta `/sys` en solo lectura. La alternativa es
+ejecutar el stack **nativo** en la Pi:
+
+```bash
+sudo apt-get install -y nginx ustreamer libgpiod2 gpiod
+chmod +x scripts/run-native-pi.sh
+cp scripts/native.env.example native.env       # HARDWARE_MODE, CAMERA_MODE, MOTOR_ENABLE_PINS...
+sudo ./scripts/run-native-pi.sh                # uStreamer + backend + nginx
+sudo ./scripts/run-native-pi.sh --stop         # parar
+```
+
+- nginx sirve `frontend/dist` y hace de proxy `/api/`→5080 y
+  `/camera/`→uStreamer (8080). Genera `camera-mode.json` desde `CAMERA_MODE`.
+- El backend se ejecuta **self-contained linux-arm64** (no requiere .NET 10 en
+  la Pi, cuyo SDK es 6.0.100).
+- `MOTOR_ENABLE_PINS=12,13` retiene `ENA`/`ENB` en ALTO con
+  `gpioset -m signal` (sin puentes físicos).
+
+### Despliegue híbrido (recomendado para desarrollar)
+
+Fuente de verdad y builds en el PC; la Pi solo ejecuta artefactos:
+
+```powershell
+# en el PC (Windows)
+./scripts/deploy-pi.ps1 -PiHost <IP_PI>
+# -SkipBuild / -SkipRestart para acotar
+```
+
+`deploy-pi.ps1` publica el backend, construye el frontend same-origin, copia
+`backend/publish`, `frontend/dist` y `scripts/` por SSH y reinicia con
+`sudo -n`. Requiere una entrada `sudoers` acotada a ese script:
+
+```bash
+echo 'ubuntu ALL=(ALL) NOPASSWD: /home/ubuntu/CarDrone/scripts/run-native-pi.sh' | sudo tee /etc/sudoers.d/cardrone-native
+sudo chmod 440 /etc/sudoers.d/cardrone-native && sudo visudo -c
+```
+
+> Lección (target): el binario self-contained debe ejecutarse con CWD = su
+> carpeta de `publish`; si se lanza desde la raíz del repo, ASP.NET no
+> encuentra `appsettings.json`, la sección `GPIO` queda vacía y `real` aborta
+> con `Required GPIO configuration value 'Pin1' is missing`.
+> `run-native-pi.sh` ya lo hace.
