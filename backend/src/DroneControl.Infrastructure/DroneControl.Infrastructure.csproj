@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\DroneControl.Application\DroneControl.Application.csproj" />
+    <ProjectReference Include="..\DroneControl.Domain\DroneControl.Domain.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <!-- Test-only seam: the camera monitor's internal single-probe constructor
+       is exercised by the Application and Api camera tests
+       (specs/hardware/camera-runtime.md). No runtime behavior change. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="DroneControl.Application.Tests" />
+    <InternalsVisibleTo Include="DroneControl.Api.Tests" />
+  </ItemGroup>
+
+</Project>

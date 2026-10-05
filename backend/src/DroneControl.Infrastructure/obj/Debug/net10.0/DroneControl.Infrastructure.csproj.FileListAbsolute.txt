@@ -1,0 +1,17 @@
+D:\IADevelopment\CarDrone\backend\src\DroneControl.Infrastructure\bin\Debug\net10.0\DroneControl.Infrastructure.deps.json
+D:\IADevelopment\CarDrone\backend\src\DroneControl.Infrastructure\bin\Debug\net10.0\DroneControl.Infrastructure.dll
+D:\IADevelopment\CarDrone\backend\src\DroneControl.Infrastructure\bin\Debug\net10.0\DroneControl.Infrastructure.pdb
+D:\IADevelopment\CarDrone\backend\src\DroneControl.Infrastructure\bin\Debug\net10.0\DroneControl.Application.dll
+D:\IADevelopment\CarDrone\backend\src\DroneControl.Infrastructure\bin\Debug\net10.0\DroneControl.Domain.dll
+D:\IADevelopment\CarDrone\backend\src\DroneControl.Infrastructure\bin\Debug\net10.0\DroneControl.Application.pdb
+D:\IADevelopment\CarDrone\backend\src\DroneControl.Infrastructure\bin\Debug\net10.0\DroneControl.Domain.pdb
+D:\IADevelopment\CarDrone\backend\src\DroneControl.Infrastructure\obj\Debug\net10.0\DroneControl.Infrastructure.csproj.AssemblyReference.cache
+D:\IADevelopment\CarDrone\backend\src\DroneControl.Infrastructure\obj\Debug\net10.0\DroneControl.Infrastructure.GeneratedMSBuildEditorConfig.editorconfig
+D:\IADevelopment\CarDrone\backend\src\DroneControl.Infrastructure\obj\Debug\net10.0\DroneControl.Infrastructure.AssemblyInfoInputs.cache
+D:\IADevelopment\CarDrone\backend\src\DroneControl.Infrastructure\obj\Debug\net10.0\DroneControl.Infrastructure.AssemblyInfo.cs
+D:\IADevelopment\CarDrone\backend\src\DroneControl.Infrastructure\obj\Debug\net10.0\DroneControl.Infrastructure.csproj.CoreCompileInputs.cache
+D:\IADevelopment\CarDrone\backend\src\DroneControl.Infrastructure\obj\Debug\net10.0\DroneCon.334717DE.Up2Date
+D:\IADevelopment\CarDrone\backend\src\DroneControl.Infrastructure\obj\Debug\net10.0\DroneControl.Infrastructure.dll
+D:\IADevelopment\CarDrone\backend\src\DroneControl.Infrastructure\obj\Debug\net10.0\refint\DroneControl.Infrastructure.dll
+D:\IADevelopment\CarDrone\backend\src\DroneControl.Infrastructure\obj\Debug\net10.0\DroneControl.Infrastructure.pdb
+D:\IADevelopment\CarDrone\backend\src\DroneControl.Infrastructure\obj\Debug\net10.0\ref\DroneControl.Infrastructure.dll

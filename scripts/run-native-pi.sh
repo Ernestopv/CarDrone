@@ -1,0 +1,156 @@
+#!/bin/sh
+# ---------------------------------------------------------------------------
+# CarDrone — arranque NATIVO del STACK COMPLETO en la Raspberry Pi (sin Docker):
+#   nginx  : sirve frontend/dist y hace de proxy /api/ (backend) y /camera/ (uStreamer)
+#   backend: ASP.NET Core (dotnet), puerto 5080
+#   camera : uStreamer MJPEG, puerto interno 8080
+#
+# Por qué nativo: fuera de Docker el proceso SÍ puede escribir /sys/class/pwm
+# (sysfs), lo que habilita el PWM real (velocidad) y el GPIO directo. Dentro de
+# Docker, /sys es de solo lectura.
+#
+# Prerrequisitos (en la Pi):
+#   sudo apt-get install -y nginx ustreamer libgpiod2
+#   .NET 10 (SDK para `dotnet run`, o publish copiado en backend/publish)
+#   node/npm SOLO si hay que construir el frontend (frontend/dist ausente)
+#   Ejecutar con sudo (nginx + sysfs PWM):
+#       sudo ./scripts/run-native-pi.sh
+#   Parar:  sudo ./scripts/run-native-pi.sh --stop
+# ---------------------------------------------------------------------------
+set -eu
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+
+PIDDIR="$ROOT/.native-pids"
+NGINX_SITE=/etc/nginx/sites-available/cardrone
+
+stop_all() {
+  if [ -d "$PIDDIR" ]; then
+    for p in "$PIDDIR"/*.pid; do
+      [ -f "$p" ] || continue
+      kill "$(cat "$p")" 2>/dev/null || true
+      rm -f "$p"
+    done
+  fi
+  if [ -e /etc/nginx/sites-enabled/cardrone ]; then
+    rm -f /etc/nginx/sites-enabled/cardrone
+    nginx -s reload 2>/dev/null || true
+  fi
+}
+
+if [ "${1:-}" = "--stop" ]; then
+  stop_all
+  echo "CarDrone nativo detenido."
+  exit 0
+fi
+
+# --- 1) Configuración de operador (exportada al proceso .NET) ---
+for f in native.env motor.env pwm.env; do
+  if [ -f "$f" ]; then
+    # shellcheck disable=SC1090
+    set -a; . "./$f"; set +a
+  fi
+done
+
+: "${HARDWARE_MODE:=real}"
+: "${CAMERA_MODE:=ustreamer}"
+: "${GPIO_DEVICE:=/dev/gpiochip0}"
+: "${BACKEND_PORT:=5080}"
+: "${USTREAMER_PORT:=8080}"
+: "${HTTP_PORT:=8081}"
+: "${CAMERA_DEVICE:=/dev/video0}"
+: "${CAMERA_FORMAT:=MJPEG}"
+: "${CAMERA_RESOLUTION:=1280x720}"
+: "${CAMERA_FPS:=15}"
+: "${CAMERA_QUALITY:=80}"
+: "${WWW_ROOT:=/var/www/cardrone}"
+
+export HARDWARE_MODE CAMERA_MODE
+export Raspberry__GPIO__ChipPath="$GPIO_DEVICE"
+export ASPNETCORE_ENVIRONMENT="${ASPNETCORE_ENVIRONMENT:-Production}"
+export ASPNETCORE_URLS="http://0.0.0.0:$BACKEND_PORT"
+# En nativo el probe apunta al nginx local (que ya hace de proxy /camera/).
+export Camera__ProbeUrl="${Camera__ProbeUrl:-http://127.0.0.1:$HTTP_PORT/camera/}"
+
+mkdir -p "$PIDDIR"
+
+# --- 2) Prerrequisitos ---
+command -v nginx >/dev/null 2>&1 || { echo "ERROR: falta nginx (sudo apt-get install -y nginx)"; exit 1; }
+if [ ! -x "$ROOT/backend/publish/DroneControl.Api" ] && ! command -v dotnet >/dev/null 2>&1; then
+  echo "ERROR: no hay publish self-contained y falta dotnet. Publica en el PC (ver siguiente mensaje)." >&2
+  exit 1
+fi
+ldconfig -p 2>/dev/null | grep -q 'libgpiod' || echo "AVISO: falta libgpiod.so.2 (sudo apt-get install -y libgpiod2) — GPIO real fallará."
+
+echo "== CarDrone nativo =="
+echo "   HARDWARE_MODE=$HARDWARE_MODE  CAMERA_MODE=$CAMERA_MODE  GPIO_DEVICE=$GPIO_DEVICE"
+[ -f motor.env ] && echo "   motor.env=sí" || echo "   motor.env=NO (provider inerte)"
+[ -f pwm.env ]   && echo "   pwm.env=sí"   || echo "   pwm.env=no (sin velocidad PWM)"
+
+# --- 3) uStreamer ---
+if [ "$CAMERA_MODE" = "ustreamer" ]; then
+  if command -v ustreamer >/dev/null 2>&1; then
+    echo "== uStreamer :$USTREAMER_PORT ($CAMERA_DEVICE) =="
+    ustreamer --host 127.0.0.1 --port "$USTREAMER_PORT" --device "$CAMERA_DEVICE" \
+      --format "$CAMERA_FORMAT" --resolution "$CAMERA_RESOLUTION" \
+      --desired-fps "$CAMERA_FPS" --quality "$CAMERA_QUALITY" \
+      > "$ROOT/.native-ustreamer.log" 2>&1 &
+    echo $! > "$PIDDIR/ustreamer.pid"
+  else
+    echo "AVISO: 'ustreamer' no instalado (sudo apt-get install -y ustreamer). CAMERA quedará fuera de línea."
+  fi
+fi
+
+# --- 4) Frontend (build si falta dist) ---
+if [ ! -f "$ROOT/frontend/dist/index.html" ]; then
+  command -v npm >/dev/null 2>&1 || { echo "ERROR: falta npm para construir el frontend."; exit 1; }
+  echo "== build frontend (VITE_API_BASE_URL vacío = same-origin) =="
+  ( cd frontend && npm ci && VITE_API_BASE_URL= npm run build )
+fi
+mkdir -p "$WWW_ROOT"
+cp -a "$ROOT/frontend/dist/." "$WWW_ROOT/"
+chmod -R a+rX "$WWW_ROOT"
+
+# Capability document the frontend reads at startup (mirrors the Docker
+# frontend entrypoint /camera-mode.json): mode = ustreamer | mock.
+if [ "$CAMERA_MODE" = "ustreamer" ]; then _camera_mode=ustreamer; else _camera_mode=mock; fi
+printf '{"mode":"%s"}\n' "$_camera_mode" > "$WWW_ROOT/camera-mode.json"
+
+# --- 5) Backend ---
+echo "== backend :$BACKEND_PORT =="
+SELF="$ROOT/backend/publish/DroneControl.Api"
+DLL="$ROOT/backend/publish/DroneControl.Api.dll"
+if [ -x "$SELF" ]; then
+  echo "   ejecutable = backend/publish/DroneControl.Api (self-contained, sin dotnet del sistema)"
+  "$SELF" > "$ROOT/.native-backend.log" 2>&1 &
+elif [ -f "$DLL" ]; then
+  echo "   ejecutable = dotnet backend/publish/DroneControl.Api.dll"
+  dotnet "$DLL" > "$ROOT/.native-backend.log" 2>&1 &
+else
+  echo "   ejecutable = dotnet run (requiere SDK .NET 10)"
+  dotnet run --project "$ROOT/backend/src/DroneControl.Api" -c Release > "$ROOT/.native-backend.log" 2>&1 &
+fi
+echo $! > "$PIDDIR/backend.pid"
+
+# --- 6) nginx ---
+echo "== nginx :$HTTP_PORT =="
+sed -e "s|__HTTP_PORT__|$HTTP_PORT|g" \
+    -e "s|__BACKEND_PORT__|$BACKEND_PORT|g" \
+    -e "s|__USTREAMER_PORT__|$USTREAMER_PORT|g" \
+    -e "s|__WWW_ROOT__|$WWW_ROOT|g" \
+    "$ROOT/scripts/nginx-native.conf" > "$NGINX_SITE"
+ln -sf "$NGINX_SITE" /etc/nginx/sites-enabled/cardrone
+[ -e /etc/nginx/sites-enabled/default ] && rm -f /etc/nginx/sites-enabled/default
+nginx -t
+nginx -s reload 2>/dev/null || nginx
+
+echo
+echo "== CarDrone nativo ARRIBA =="
+echo "   UI   : http://<IP_PI>:$HTTP_PORT"
+echo "   API  : http://127.0.0.1:$BACKEND_PORT/api/health"
+echo "   logs : .native-backend.log  .native-ustreamer.log"
+echo "   parar: sudo $0 --stop"
+echo
+echo "Recuerda: para actuación en 'real' pon SAFETY__EXTERNALABRUPTFAILUREPROTECTIONVERIFIED=true en native.env."
+echo "Y mantén ENA/ENB habilitados (jumpers o servicio cardrone-motor-enable) para que las ruedas giren."

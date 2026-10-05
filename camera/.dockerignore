@@ -1,0 +1,8 @@
+# Task 32 (specs/docker/ustreamer-container.md) — camera build context.
+# Keep the build context minimal: the image is built from the pinned upstream
+# uStreamer tag inside the Dockerfile, so this folder only needs the Dockerfile
+# and the entry point.
+.git
+*.md
+Dockerfile*
+.dockerignore

@@ -1,0 +1,15 @@
+# Local build outputs never enter the image; the builder stage re-creates
+# them reproducibly (npm ci + build).
+node_modules
+dist
+
+# A developer's local env must never leak into an image layer — not even
+# .env.example, which the runtime image has no use for.
+.env
+.env.*
+
+# Misc tooling noise.
+npm-debug.log*
+*.local
+.git
+.vs

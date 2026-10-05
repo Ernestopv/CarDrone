@@ -1,0 +1,6 @@
+{
+  "DroneControl.Api, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "D:\\IADevelopment\\CarDrone\\backend\\src\\DroneControl.Api",
+  "DroneControl.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "D:\\IADevelopment\\CarDrone\\backend\\src\\DroneControl.Application",
+  "DroneControl.Domain, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "D:\\IADevelopment\\CarDrone\\backend\\src\\DroneControl.Domain",
+  "DroneControl.Infrastructure, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "D:\\IADevelopment\\CarDrone\\backend\\src\\DroneControl.Infrastructure"
+}

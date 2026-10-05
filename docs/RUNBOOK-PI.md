@@ -1,0 +1,126 @@
+# Raspberry Pi Runbook — arranque gradual de la aplicación
+
+Guía paso a paso para llevar CarDrone a una Raspberry Pi real. Objetivo: subir
+el stack de forma **segura y verificable**, sin inventar valores y sin activar
+salidas de hardware hasta que exista evidencia. Referencias:
+`docs/hardware/raspberry-pi-inventory.md` (evidencia), `.env.raspberry.example`
+(template), `docs/DOCKER.md` (builds), `specs/deployment/raspberry-mode.md`
+(verificación física, Task 36).
+
+## Prerrequisitos
+
+- Raspberry Pi (el inventario registra una Pi 4 Model B) con Raspberry Pi OS
+  ARM64 (Debian Bookworm) y Docker Engine + Compose v2.
+- Cámara USB conectada (para el stream; opcional para la UI).
+- Copiar la carpeta del proyecto a la Pi (sin `node_modules`, `bin`, `obj`,
+  `dist`).
+
+## Paso 1 — Sonda de descubrimiento (evidencia)
+
+En la Pi, ejecuta la sonda (read-only; también se puede desde un contenedor
+read-only, ver el inventario):
+
+```sh
+sh docs/hardware/discover-target.sh
+```
+
+Pega la salida como evidencia en el inventario (bloque "Evidence capture") y
+anota las decisiones junto a ella: grupo `gpio` (¿existe / lo creas?),
+`GPIO_GID`, `PWM_CHIP_PATH` y `PWM_CHANNEL_12/13` si aparecen, canal de la
+cámara (`/dev/video0`).
+
+## Paso 2 — Escribir el `.env`
+
+Copiar la plantilla y completar **solo** los campos de operador con
+evidencia; dejar el resto tal cual:
+
+```sh
+cp .env.raspberry.example .env
+```
+
+Durante el arranque gradual usa la línea `HARDWARE_MODE` indicada en cada
+paso (la plantilla trae `real` por defecto — cámbiala temporalmente).
+
+## Paso 3 — Revisar la configuración renderizada
+
+```sh
+docker compose config            # por defecto: frontend + backend solamente
+docker compose --profile camera config   # con profile: aparece ustreamer
+```
+
+Comprueba: solo `frontend` + `backend` visible por defecto; con el profile
+`camera` aparece `ustreamer`; sin devices inventados salvo el mapping de
+cámara ya aprobado.
+
+## Paso 4 — Primer arranque seguro (`mock`)
+
+Edita `.env` → `HARDWARE_MODE=mock` y levanta:
+
+```sh
+docker compose up -d
+```
+
+Verifica:
+- `curl localhost:8081/api/health` → 200.
+- `curl localhost:8081/` → SPA (200).
+- `curl localhost:8081/camera-mode.json` → `{"mode":"mock"}` y `/camera/` → 404.
+- UI disponible en `http://<ip-de-la-pi>:8081` (conectar, comandos, velocidad).
+
+## Paso 5 — Cámara (`ustreamer`)
+
+Con `CAMERA_MODE=ustreamer` y el mapping de cámara ya en el overlay (keep en
+el inventory):
+
+```sh
+docker compose --profile camera up -d
+```
+
+Verifica: `GET /camera-mode.json` → `{"mode":"ustreamer"}`; `GET /camera/`
+devuelve MJPEG (un navegador muestra vídeo); el backend reporta
+`DroneStatus.camera = streaming`; al desconectar la cámara pasa a `error`.
+
+## Paso 6 — Ruta GPIO/PWM sin riesgo (`dry-run`)
+
+`.env` → `HARDWARE_MODE=dry-run` (misma Pi, mismo gráfico, salidas grabadas y
+suprimidas):
+
+```sh
+docker compose up -d
+```
+
+Verifica: el backend arranca sin error de preflight, el provider reporta
+disponibilidad por software, y los comandos/speed producen registros
+`DryRunOperationRecord` sin actuación. Es la prueba de que todo el stack
+GPIO/PWM **de software** funciona en la Pi antes de tocar hardware.
+
+## Paso 7 — Paso a `real` (solo con precondiciones)
+
+Cambia a `HARDWARE_MODE=real` **solo cuando**:
+
+- [ ] Permisos de `gpiochip0` resueltos en la Pi (grupo `gpio`/udev) y
+      `GPIO_GID` en `.env` + mapping en `docker-compose.raspberry.yml`
+      (ver seam documentado del `backend`).
+- [ ] PWM configurado con evidencia de la sonda: `PWM_CHIP_PATH` y
+      `PWM_CHANNEL_12/13` en `.env` (si vas a usar velocidad).
+- [ ] Para motores: `WIRING.md` con las filas `CONFIRMED` y
+      `MotorMapping`/`PwmMapping` asertados en configuración.
+- [ ] `SAFETY_EXTERNAL_FAILURE_PROTECTION_VERIFIED=true` **solo después** de
+      documentar la protección externa ante fallo brusco (D7).
+
+Sin esas precondiciones `real` arranca pero GPIO/PWM devuelven `Unavailable`
+(genuino) o abortan con el mensaje de configuración — nunca falla en silencio.
+
+## Paso 8 — Verificación final y registro
+
+- Endpoints de control (connect/command/speed/status, 400/409) sobre el
+  backend real.
+- `GET /camera/mode.json` + stream; comportamiento de reconexión de la UI.
+- Frecuencia/PWM y dirección de motores en banco con el registro de evidencia
+  (no basta "funciona": anota fecha + observación por fila).
+
+## Paso 9 — Resultado honesto
+
+Todo lo que no se verificó en este arranque queda marcado `NOT VERIFIED`
+(actuación real, acceso en contenedor a gpiochip/Video, MJPEG real, detalles
+OS/kernel). Rellena estos campos solo con evidencia real; el backlog mantiene
+el Task 36 `BLOCKED` hasta entonces.

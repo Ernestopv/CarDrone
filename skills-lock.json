@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "skills": {
+    "docker": {
+      "source": "codewithmukesh/dotnet-claude-kit",
+      "sourceType": "github",
+      "skillPath": "skills/docker/SKILL.md",
+      "computedHash": "2520a3339657f27ca2ef1e96dc336bafb3b294198c828ca1b088e104c18c6828"
+    },
+    "dotnet": {
+      "source": "mindrally/skills",
+      "sourceType": "github",
+      "skillPath": "dotnet/SKILL.md",
+      "computedHash": "da89bbe9982aaa23c2f2b690baf13a860628750bb741af6b57bba8e368716456"
+    },
+    "frontend-design": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "skillPath": "skills/frontend-design/SKILL.md",
+      "computedHash": "106acf230014cbb43ca34e6410371321b56ca742f9ee0442e8ec05bf02eb0384"
+    },
+    "react": {
+      "source": "vercel-labs/json-render",
+      "sourceType": "github",
+      "skillPath": "skills/react/SKILL.md",
+      "computedHash": "7950a6403bae48f638036768fd5d4a4643aaaa3bde04e99d4d8f2d1f485ab63d"
+    },
+    "web-design-guidelines": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/web-design-guidelines/SKILL.md",
+      "computedHash": "d8e7d3afe37dcc8a97b99ffb5afdb4d0919ae0092ea8b68f44eb201f035e33ac"
+    }
+  }
+}

@@ -1,0 +1,114 @@
+# Full-stack development environment — specs/docker/docker-compose-development.md
+# (backend, Task 14) extended by specs/docker/full-stack-compose.md (Task 20):
+# `docker compose up` runs the whole application. The frontend container serves
+# the built React app and proxies /api/ to this backend over the compose
+# network, so nothing inside a container assumes any particular host.
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: cardrone-backend
+    ports:
+      - "5080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      # Composition-root hardware runtime selection (Task 23; D2 of the Task 21
+      # design). The default keeps PC behavior identical; a Pi folder's .env
+      # sets HARDWARE_MODE=real. Selecting 'real' on a PC aborts startup loudly.
+      HARDWARE_MODE: ${HARDWARE_MODE:-mock}
+      # Must stay false until an external abrupt-failure protection mechanism
+      # has been independently verified. Enabling the variable is an operator
+      # assertion, not proof of the mechanism.
+      SAFETY__EXTERNALABRUPTFAILUREPROTECTIONVERIFIED: ${SAFETY_EXTERNAL_FAILURE_PROTECTION_VERIFIED:-false}
+      # Camera runtime selection (Task 31; specs/hardware/camera-runtime.md).
+      # The default keeps PC behavior identical ('mock' = simulated camera
+      # state, no probe registered). A Pi folder's .env sets
+      # CAMERA_MODE=ustreamer, which requires CAMERA_PROBE_URL (its value is
+      # documented and wired by Tasks 32/34); the empty default is ignored in
+      # mock mode and aborts loudly if CAMERA_MODE=ustreamer without a value.
+      CAMERA_MODE: ${CAMERA_MODE:-mock}
+      CAMERA__PROBEURL: ${CAMERA_PROBE_URL:-}
+      # Real GPIO/PWM resource configuration (HARDWARE_MODE=real; see
+      # docs/hardware/raspberry-pi-inventory.md "Operator-supplied runtime
+      # values"). The GPIO chip default (/dev/gpiochip0) is the
+      # inventory-observed device and may be overridden by GPIO_DEVICE. PWM
+      # chip path and PWM channel mappings have NO invented default — they are
+      # operator values from target evidence; an asserted PwmMapping with an
+      # empty value aborts at startup (fail-fast, D5). Mock/dry-run never read
+      # these keys.
+      Raspberry__GPIO__ChipPath: ${GPIO_DEVICE:-/dev/gpiochip0}
+      Raspberry__PWM__ChipPath: ${PWM_CHIP_PATH:-}
+      Raspberry__PWM__Channels__12: ${PWM_CHANNEL_12:-}
+      Raspberry__PWM__Channels__13: ${PWM_CHANNEL_13:-}
+    # Orchestrator-level health probe — the Dockerfile deliberately carries no
+    # HEALTHCHECK (Task 13). The aspnet:10.0 image ships no curl/wget, so the
+    # probe performs a raw HTTP GET to /api/health via bash /dev/tcp and
+    # requires the "200" status line. Uses only tooling present in the image.
+    healthcheck:
+      test:
+        - CMD
+        - bash
+        - -c
+        - |
+          exec 3<>/dev/tcp/127.0.0.1/8080 || exit 1
+          printf 'GET /api/health HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3
+          IFS= read -r -t 5 line <&3 || exit 1
+          [[ "$$line" == *" 200 "* ]]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+  # Task 20: composed frontend. frontend/Dockerfile builds the React app
+  # (empty VITE_API_BASE_URL -> relative same-origin calls) and serves it via
+  # nginx, which proxies /api/ to http://backend:8080 on the compose network.
+  # It starts only once the backend healthcheck passes, so the proxy never
+  # faces a dead upstream at boot. Browser entry point: host port 8081 below.
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ""
+    image: cardrone-frontend
+    ports:
+      - "8081:80"
+    environment:
+      # Task 32 (specs/docker/ustreamer-container.md): media-plane passthrough
+      # target for the /camera/ nginx location. The empty default keeps
+      # /camera/ answered with 404 (never SPA HTML); a Pi deployment sets it
+      # by .env (intended value http://ustreamer:8080/stream, wired by Task 34).
+      CAMERA_PROXY_TARGET: ${CAMERA_PROXY_TARGET:-}
+    depends_on:
+      backend:
+        condition: service_healthy
+    # nginx:1-alpine ships busybox wget, so this probe needs no extra tooling
+    # and the frontend Dockerfile stays HEALTHCHECK-free (Task 13 convention).
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+  # Task 32 (specs/docker/ustreamer-container.md): MJPEG encoder for the Pi
+  # camera on the media plane. Gated by the 'camera' profile (reserved by Task
+  # 31); enabled only by COMPOSE_PROFILES=camera on the Pi .env (Task 34).
+  # Never part of PC mode and never a control-plane dependency: no devices, no
+  # published host port, no privileges, no depends_on to/from backend/frontend
+  # (D4: media plane never merges with the control plane).
+  ustreamer:
+    build:
+      context: ./camera
+      dockerfile: Dockerfile
+    image: cardrone-camera
+    profiles: ["camera"]
+    restart: unless-stopped
+    environment:
+      # Task 31 encoder design defaults; operator-tunable. Support on a real
+      # camera is NOT VERIFIED until Task 36. CAMERA_FORMAT defaults to MJPEG
+      # (the inventory-recommended native format; YUYV@1280x720 timed out on
+      # the target camera).
+      CAMERA_FORMAT: ${CAMERA_FORMAT:-MJPEG}
+      CAMERA_RESOLUTION: ${CAMERA_RESOLUTION:-1280x720}
+      CAMERA_FPS: ${CAMERA_FPS:-15}
+      CAMERA_QUALITY: ${CAMERA_QUALITY:-80}

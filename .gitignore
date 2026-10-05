@@ -1,0 +1,3 @@
+# Local environment files may contain secrets and must never enter
+# source control (specs/docker/docker-compose-development.md).
+.env

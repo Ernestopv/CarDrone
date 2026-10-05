@@ -1,0 +1,12 @@
+# Local build outputs never enter the image layers.
+**/bin
+**/obj
+**/.vs
+
+# Docker artifacts are consumed by the builder directly.
+**/Dockerfile*
+**/docker-compose*
+
+# Misc tooling noise.
+**/.git
+**/*.user

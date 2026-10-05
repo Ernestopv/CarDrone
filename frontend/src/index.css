@@ -1,0 +1,101 @@
+@import 'tailwindcss';
+
+/* Self-hosted design typefaces (OFL, basic-latin subset, ~52 KB total).
+   Space Grotesk carries the interface; IBM Plex Mono carries measured data. */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./assets/fonts/IBMPlexMono-400-latin.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('./assets/fonts/IBMPlexMono-600-latin.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url('./assets/fonts/SpaceGrotesk-300_700-latin.woff2') format('woff2');
+}
+
+/* Glass-cockpit palette: every hue carries a meaning, none is decoration.
+   hud (cyan) = active control, ok = healthy, caution = attention, warn = stop/error. */
+@theme {
+  --font-sans: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, Consolas, 'Courier New', monospace;
+
+  --color-night: #060a11;
+  --color-panel: #0b121b;
+  --color-rule: #1b2836;
+  --color-hud: #5ce1e6;
+  --color-ok: #4ade80;
+  --color-caution: #f2b84b;
+  --color-warn: #ff5252;
+  --color-ink: #e6eef6;
+  --color-ink-dim: #93a7bc;
+  --color-ink-mute: #7c91a8;
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background-color: var(--color-night);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* One visible focus treatment for every interactive element. */
+  :focus-visible {
+    outline: 2px solid var(--color-hud);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: rgb(92 225 230 / 0.25);
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-rule) transparent;
+  }
+}
+
+/* One orchestrated load-in for the dashboard frame. The pulse marks an
+   in-progress state (connecting). Both respect prefers-reduced-motion. */
+@keyframes cell-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes soft-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .animate-cell-in {
+    animation: cell-in 0.45s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  }
+
+  .animate-soft-pulse {
+    animation: soft-pulse 1.4s ease-in-out infinite;
+  }
+}

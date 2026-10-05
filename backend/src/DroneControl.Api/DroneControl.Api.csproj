@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />
+  </ItemGroup>
+
+  <!-- Test-only seam: composition tests resolve the hardware-backed graphs on
+       a development PC through the internal AddDroneRuntime overload. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="DroneControl.Api.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DroneControl.Application\DroneControl.Application.csproj" />
+    <ProjectReference Include="..\DroneControl.Infrastructure\DroneControl.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>
