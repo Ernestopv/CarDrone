@@ -178,6 +178,8 @@ the native stack via `sudo -n` (see the passwordless-sudo note in
 dry-run-tested → Pi-runtime-verified → real-hardware-verified`. Anything not
   physically exercised stays `NOT VERIFIED`.
 
+  ![alt text](pics/drone.jpg)
+
 ## 7. Development workflow (Spec-Driven Development)
 
 1. **`/plan-spec <task>`** creates or updates a specification only (no code).
@@ -260,10 +262,6 @@ The agent selects the **minimum set** of skills that the task's domain requires
 - `tasks/BACKLOG.md` — roadmap and task statuses
 - `specs/` — one specification per feature/task
 
-## UI Interface
+## User Interface
 
 ![alt text](pics/ui-interface.png)
-
-## Hardware
-
-![alt text](pics/drone.jpg)
