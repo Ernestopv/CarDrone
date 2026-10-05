@@ -9,6 +9,18 @@ half of the media plane: rendering the stream, honest status presentation,
 and client-side reconnect. It adds no backend code and no new published host
 port.
 
+## Transport upgrade — WebRTC (low latency)
+
+The MJPEG `<img>` transport has inherent latency (USB camera + browser
+buffering). When go2rtc is available on the Pi, the browser instead negotiates a
+**WebRTC** recvonly H.264 track — a WHEP-style `POST /go2rtc/api/webrtc?src=cam`
+with an SDP offer — and renders it in a `<video>`. go2rtc transcodes the
+uStreamer MJPEG feed to H.264 (hardware `h264_v4l2m2m`) and serves the media
+directly to the browser; nginx proxies only the signaling same-origin. The
+MJPEG `<img>` remains the **automatic fallback** when WebRTC is unsupported or
+fails/times out (5 s), so `/camera/` stays the guaranteed transport and the
+existing state/reconnect semantics are unchanged.
+
 ## Dependencies
 
 - `specs/hardware/camera-runtime.md` (Task 31) — normative design this task

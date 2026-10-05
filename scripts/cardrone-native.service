@@ -1,0 +1,21 @@
+[Unit]
+Description=CarDrone native full stack (nginx + backend + uStreamer)
+Documentation=https://example.invalid/cardrone
+# PWM sysfs must be exported first; the network must be up for nothing else,
+# but wait for it so the camera/nginx bind cleanly on cold boot.
+After=network-online.target cardrone-pwm.service
+Wants=network-online.target cardrone-pwm.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/home/ubuntu/CarDrone
+# run-native-pi.sh starts the three processes detached (nohup) and returns;
+# --stop tears them down. Both need root: nginx site install + /sys PWM writes.
+ExecStart=/home/ubuntu/CarDrone/scripts/run-native-pi.sh
+ExecStop=/home/ubuntu/CarDrone/scripts/run-native-pi.sh --stop
+TimeoutStartSec=120
+KillMode=none
+
+[Install]
+WantedBy=multi-user.target

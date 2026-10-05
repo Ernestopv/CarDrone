@@ -1,0 +1,29 @@
+# CarDrone - go2rtc (WebRTC), started by scripts/run-native-pi.sh.
+#
+# The source is the uStreamer MJPEG feed, so only uStreamer opens the camera
+# device; go2rtc transcodes it to H.264 (hardware v4l2m2m on the Pi 4) for
+# browser WebRTC (low latency). The existing /camera/ MJPEG transport stays as
+# the fallback. Bind the API to loopback only; nginx proxies it same-origin.
+log:
+  level: info
+
+api:
+  listen: "127.0.0.1:1984"
+
+rtsp:
+  listen: "127.0.0.1:8554"
+
+webrtc:
+  # Media endpoint the browser connects to directly (LAN). Override with
+  # webrtc.candidates if the Pi has multiple interfaces.
+  listen: ":8555"
+
+streams:
+  # __CAM_SOURCE__ is substituted by scripts/run-native-pi.sh with the ffmpeg
+  # command for the selected CAMERA_SOURCE: the uStreamer MJPEG feed (default)
+  # or the V4L2 device directly (lowest latency, no MJPEG fallback). libx264
+  # (software) is used because the hardware h264_v4l2m2m encoder rejects a GOP
+  # size ("Failed to set gop size") and emits almost no keyframes, freezing the
+  # browser; ultrafast+zerolatency keeps CPU/latency low and -g 30 gives regular
+  # keyframes so the WebRTC receiver can recover.
+  cam: __CAM_SOURCE__

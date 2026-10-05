@@ -2,7 +2,8 @@
 
 A web application for **monitoring and controlling a small wheeled drone**: a
 React dashboard, an ASP.NET Core backend, and a Raspberry Pi hardware runtime
-(GPIO/PWM for the motors, a USB camera streamed with uStreamer).
+(GPIO/PWM for the motors, a USB camera streamed as **WebRTC** for low latency,
+with uStreamer MJPEG as fallback).
 
 The same source tree runs on a **development PC** (simulated hardware) and on a
 **Raspberry Pi** (real hardware). Platform differences come only from
@@ -16,12 +17,14 @@ configuration — no code branches.
 ## 1. What it does
 
 - **Dashboard**: connection/system status, simulated telemetry, a **camera
-  panel** (live MJPEG feed on the Pi, simulated on the PC), and directional
-  controls (forward / backward / left / right / stop) plus a speed control.
+  panel** (live feed on the Pi — WebRTC, with an MJPEG fallback — and simulated
+  on the PC), and directional controls (forward / backward / left / right /
+  stop) with **hold-to-move**, plus a speed control.
 - **Real control plane** over `/api/…` (five endpoints + health): connect,
   disconnect, command, speed, status.
 - **Two runtime planes that never mix** (D4): the control plane (`/api/`, JSON,
-  ASP.NET) and the media plane (`/camera/`, MJPEG, nginx → uStreamer).
+  ASP.NET) and the media plane (WebRTC via `/go2rtc/`, or MJPEG via
+  `/camera/`).
 - **Honest by construction**: simulated acknowledgements are never presented as
   hardware-confirmed; anything not physically verified is marked
   `NOT VERIFIED`.
@@ -34,7 +37,8 @@ Browser (React SPA)
    ▼
 Frontend nginx ── /        → static React build
    ├──────────── /api/     → ASP.NET Core backend
-   └──────────── /camera/  → uStreamer (MJPEG)          [media plane]
+   ├──────────── /go2rtc/  → go2rtc (WebRTC signaling)  [media plane]
+   └──────────── /camera/  → uStreamer (MJPEG fallback) [media plane]
                                 ▲
                                 │ /dev/video0
                           Raspberry Pi Camera
@@ -63,14 +67,25 @@ Linux / Raspberry Pi    GPIO (libgpiod), PWM (sysfs), camera device
 ### Camera pipeline
 
 ```text
-USB camera → uStreamer (MJPEG) → nginx /camera/ → browser <img>
-                     ▲
-   backend probes /camera/ (headers-only) → DroneStatus.camera (reachable = "streaming")
+USB camera → ffmpeg (H.264/libx264) → go2rtc → WebRTC (browser <video>)     [primary]
+      │                                    ▲ nginx /go2rtc/ proxies the SDP signaling only
+      └──── uStreamer (MJPEG) → nginx /camera/ → browser <img>               [fallback]
 ```
 
-The browser always uses the **relative same-origin `/camera/`** path (no host/IP
-in React). The backend reports camera _status_ over the existing
-`DroneStatus.camera` field — the wire contract is unchanged.
+The primary transport is **WebRTC** (browser `<video>`, ~100–200 ms): go2rtc on
+the Pi transcodes the camera to H.264 (`libx264`) and serves the media directly,
+while nginx proxies only the signaling same-origin (`/go2rtc/`). The MJPEG
+`<img>` over `/camera/` stays as the **automatic fallback** when WebRTC is
+unavailable or stalls. Two Pi-side source modes:
+
+- `CAMERA_SOURCE=ustreamer` (default) — uStreamer owns the camera and WebRTC is
+  transcoded from its MJPEG feed, so the `/camera/` fallback stays available.
+- `CAMERA_SOURCE=device` — go2rtc reads `/dev/video0` directly (lowest latency,
+  no MJPEG fallback).
+
+The browser always uses relative same-origin paths (no host/IP in React), and
+the backend reports camera _status_ over the existing `DroneStatus.camera`
+field — the wire contract is unchanged.
 
 ## 3. Runtime modes and deployment
 
@@ -79,14 +94,14 @@ Two orthogonal runtime modes, selected **only at DI composition root**:
 | Key             | Values                                  | Meaning                                                                                      |
 | --------------- | --------------------------------------- | -------------------------------------------------------------------------------------------- |
 | `HARDWARE_MODE` | `mock` (default) \| `dry-run` \| `real` | mock = simulated; dry-run = real flow, outputs logged & suppressed; real = physical GPIO/PWM |
-| `CAMERA_MODE`   | `mock` (default) \| `ustreamer`         | mock = simulated camera; ustreamer = real MJPEG via `/camera/`                               |
+| `CAMERA_MODE`   | `mock` (default) \| `ustreamer`         | mock = simulated; ustreamer = real feed: WebRTC (go2rtc) with MJPEG `/camera/` fallback      |
 
 One folder, one command: **`docker compose up`** on PC and Pi; the only
 difference is the folder's `.env`. Invalid/incompatible values abort startup
 loudly (no silent fallback, D5). `real` requires `linux/arm64` and, for motor
 actuation, the external-failure-protection assertion (D7).
 
-See `docs/DECISIONS.md` (D1–D7) and `docs/ARCHITECTURE.md`.
+See `docs/DECISIONS.md` (D1–D8) and `docs/ARCHITECTURE.md`.
 
 ## 4. Repository layout
 
@@ -99,7 +114,8 @@ docker-compose.raspberry.yml   Pi-only overlay (device/group mappings)
 .env.raspberry.example         Pi configuration template
 docs/        PRD, ARCHITECTURE, DECISIONS, DOCKER, RUNBOOK-PI, hardware/WIRING.md, ...
 specs/       one specification per feature/task (the SDD source of truth)
-scripts/     native (no-Docker) full-stack launcher for the Pi
+scripts/     native (no-Docker) Pi launcher: run-native-pi.sh, nginx-native.conf,
+             go2rtc.yaml (WebRTC source), cardrone-native.service, deploy-pi.ps1
 tasks/BACKLOG.md               roadmap and task statuses
 ```
 
@@ -129,10 +145,12 @@ Useful when the process must write `/sys/class/pwm` (Docker mounts `/sys`
 read-only):
 
 ```bash
-sudo apt-get install -y nginx ustreamer libgpiod2
-chmod +x scripts/run-native-pi.sh
+sudo apt-get install -y nginx ustreamer libgpiod2 ffmpeg
+mkdir -p ~/bin                         # go2rtc (WebRTC) — arm64 binary
+curl -sL -o ~/bin/go2rtc https://github.com/AlexxIT/go2rtc/releases/latest/download/go2rtc_linux_arm64
+chmod +x ~/bin/go2rtc scripts/run-native-pi.sh
 cp scripts/native.env.example native.env
-sudo ./scripts/run-native-pi.sh        # uStreamer + backend + nginx; --stop to stop
+sudo ./scripts/run-native-pi.sh   # nginx + uStreamer + go2rtc (WebRTC) + backend
 ```
 
 **Hybrid workflow (recommended for development):** keep the source of truth and
@@ -178,10 +196,11 @@ validation).
   (software), real GPIO sink (libgpiod), camera probe + status overlay,
   `/camera/` proxy, uStreamer container, unified compose + Pi `.env`.
 - Verified on the target Pi: native (no-Docker) full stack (nginx + backend +
-  uStreamer), camera MJPEG pipeline, GPIO container access (non-root),
-  **real GPIO motor direction** (all five commands operator-confirmed),
-  **variable speed via PWM** (ENA/ENB on BCM 12/13 at 20 kHz; speeds
-  25/60/100 operator-confirmed) and the hybrid PC→Pi deploy
+  uStreamer + go2rtc), **low-latency WebRTC camera** (ffmpeg H.264 → go2rtc,
+  with a stall watchdog and MJPEG fallback), the MJPEG `/camera/` pipeline,
+  GPIO container access (non-root), **real GPIO motor direction** (all five
+  commands operator-confirmed), **variable speed via PWM** (ENA/ENB on BCM 12/13
+  at 20 kHz; speeds 25/60/100 operator-confirmed) and the hybrid PC→Pi deploy
   (`scripts/deploy-pi.ps1`).
 - `NOT VERIFIED` (deferred / needs hardware evidence): PWM minimum-duty
   threshold and duty-0 rest/coast/brake behavior, electrical limits, full Pi
@@ -233,7 +252,7 @@ The agent selects the **minimum set** of skills that the task's domain requires
 - `MEMORY.md` — durable state and lessons learned
 - `docs/PRD.md` — product requirements
 - `docs/ARCHITECTURE.md` — architecture and status snapshot
-- `docs/DECISIONS.md` — decision records D1–D7
+- `docs/DECISIONS.md` — decision records D1–D8 (D8 = native WebRTC/PWM runtime path)
 - `docs/DOCKER.md` — container build/run commands
 - `docs/RUNBOOK-PI.md` — bring-up runbook for the Raspberry Pi
 - `docs/hardware/WIRING.md` / `raspberry-pi-inventory.md` — hardware evidence

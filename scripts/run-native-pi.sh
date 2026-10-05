@@ -66,14 +66,30 @@ done
 : "${CAMERA_QUALITY:=80}"
 : "${CAMERA_BUFFERS:=1}"
 : "${CAMERA_WORKERS:=1}"
+# ustreamer = WebRTC from the uStreamer MJPEG feed (keeps the /camera/ fallback);
+# device   = WebRTC straight from /dev/video0 (lowest latency; no MJPEG fallback,
+#            because the camera is exclusive and uStreamer cannot run alongside).
+: "${CAMERA_SOURCE:=ustreamer}"
 : "${WWW_ROOT:=/var/www/cardrone}"
+: "${GO2RTC_API_PORT:=1984}"
+: "${WEBRTC_ENABLED:=1}"
+# go2rtc binary: explicit env, else on PATH, else the conventional local path.
+if [ -z "${GO2RTC_BIN:-}" ]; then
+  GO2RTC_BIN="$(command -v go2rtc 2>/dev/null || true)"
+  [ -n "$GO2RTC_BIN" ] || GO2RTC_BIN="/home/ubuntu/bin/go2rtc"
+fi
 
 export HARDWARE_MODE CAMERA_MODE
 export Raspberry__GPIO__ChipPath="$GPIO_DEVICE"
 export ASPNETCORE_ENVIRONMENT="${ASPNETCORE_ENVIRONMENT:-Production}"
 export ASPNETCORE_URLS="http://0.0.0.0:$BACKEND_PORT"
-# En nativo el probe apunta al nginx local (que ya hace de proxy /camera/).
-export Camera__ProbeUrl="${Camera__ProbeUrl:-http://127.0.0.1:$HTTP_PORT/camera/}"
+# En nativo el probe apunta al nginx local. En modo 'device' no existe /camera/
+# (uStreamer parado), así que el probe comprueba la API de go2rtc.
+if [ "$CAMERA_SOURCE" = "device" ]; then
+  export Camera__ProbeUrl="${Camera__ProbeUrl:-http://127.0.0.1:$HTTP_PORT/go2rtc/api/streams}"
+else
+  export Camera__ProbeUrl="${Camera__ProbeUrl:-http://127.0.0.1:$HTTP_PORT/camera/}"
+fi
 
 mkdir -p "$PIDDIR"
 
@@ -91,7 +107,7 @@ echo "   HARDWARE_MODE=$HARDWARE_MODE  CAMERA_MODE=$CAMERA_MODE  GPIO_DEVICE=$GP
 [ -f pwm.env ]   && echo "   pwm.env=sí"   || echo "   pwm.env=no (sin velocidad PWM)"
 
 # --- 3) uStreamer ---
-if [ "$CAMERA_MODE" = "ustreamer" ]; then
+if [ "$CAMERA_MODE" = "ustreamer" ] && [ "$CAMERA_SOURCE" != "device" ]; then
   if command -v ustreamer >/dev/null 2>&1; then
     echo "== uStreamer :$USTREAMER_PORT ($CAMERA_DEVICE) =="
     # --buffers 1 (single device buffer) and --tcp-nodelay (disable Nagle on the
@@ -105,6 +121,24 @@ if [ "$CAMERA_MODE" = "ustreamer" ]; then
   else
     echo "AVISO: 'ustreamer' no instalado (sudo apt-get install -y ustreamer). CAMERA quedará fuera de línea."
   fi
+fi
+
+# --- 3c) go2rtc (WebRTC) OPCIONAL ---
+# Sirve el vídeo por WebRTC (baja latencia) transcodificando la señal MJPEG de
+# uStreamer a H.264 (hardware v4l2m2m). /camera/ (MJPEG) queda como respaldo.
+# El navegador negocia con /go2rtc/api/webrtc (proxy de nginx, same-origin).
+if [ "$CAMERA_MODE" = "ustreamer" ] && [ "$WEBRTC_ENABLED" != "0" ] && [ -x "$GO2RTC_BIN" ]; then
+  if [ "$CAMERA_SOURCE" = "device" ]; then
+    CAM_SOURCE="exec:ffmpeg -hide_banner -nostdin -fflags nobuffer -flags low_delay -f v4l2 -input_format mjpeg -video_size $CAMERA_RESOLUTION -framerate $CAMERA_FPS -i $CAMERA_DEVICE -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p -g 30 -b:v 2500k -f rtsp {output}"
+  else
+    CAM_SOURCE="exec:ffmpeg -hide_banner -nostdin -fflags nobuffer -flags low_delay -probesize 32 -analyzeduration 0 -f mpjpeg -i http://127.0.0.1:$USTREAMER_PORT/stream -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p -g 30 -b:v 2500k -f rtsp {output}"
+  fi
+  GO2RTC_CONFIG="$ROOT/.native-go2rtc.yaml"
+  sed -e "s|__CAM_SOURCE__|$CAM_SOURCE|g" "$ROOT/scripts/go2rtc.yaml" > "$GO2RTC_CONFIG"
+  echo "== go2rtc WebRTC (API :$GO2RTC_API_PORT, source=$CAMERA_SOURCE) =="
+  nohup "$GO2RTC_BIN" -config "$GO2RTC_CONFIG" \
+    < /dev/null > "$ROOT/.native-go2rtc.log" 2>&1 &
+  echo $! > "$PIDDIR/go2rtc.pid"
 fi
 
 # --- 3b) Motor enable (ENA/ENB) OPCIONAL ---
@@ -172,6 +206,7 @@ echo "== nginx :$HTTP_PORT =="
 sed -e "s|__HTTP_PORT__|$HTTP_PORT|g" \
     -e "s|__BACKEND_PORT__|$BACKEND_PORT|g" \
     -e "s|__USTREAMER_PORT__|$USTREAMER_PORT|g" \
+    -e "s|__GO2RTC_API_PORT__|$GO2RTC_API_PORT|g" \
     -e "s|__WWW_ROOT__|$WWW_ROOT|g" \
     "$ROOT/scripts/nginx-native.conf" > "$NGINX_SITE"
 ln -sf "$NGINX_SITE" /etc/nginx/sites-enabled/cardrone

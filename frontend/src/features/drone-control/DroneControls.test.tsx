@@ -79,6 +79,17 @@ describe('DroneControls', () => {
     expect(onSpeedChange).toHaveBeenCalledWith(55)
   })
 
+  it('drops slider focus after a pointer interaction so arrow keys move the drone', () => {
+    renderControls({ connected: true })
+    const slider = screen.getByLabelText('SPEED')
+    slider.focus()
+    expect(document.activeElement).toBe(slider)
+
+    fireEvent.pointerUp(slider)
+    // Focus released: the arrow keys no longer nudge the speed slider.
+    expect(document.activeElement).not.toBe(slider)
+  })
+
   it('shows the keyboard hint', () => {
     renderControls()
     expect(screen.getByText(/SPACE STOP/)).toBeTruthy()

@@ -1,5 +1,6 @@
 import { Panel } from '../../components/ui/Panel'
 import { CAMERA_STREAM_PATH, useCameraStream } from './useCameraStream'
+import { useWebRtcStream } from './useWebRtcStream'
 import type { CameraMode, CameraStatus, DroneCommand } from '../../types/drone'
 import { commandLabel } from '../../utils/status'
 
@@ -146,11 +147,16 @@ export function CameraView({
   cameraUnavailable = false,
 }: CameraViewProps) {
   const realMode = cameraMode === 'ustreamer'
-  // Hooks must run unconditionally. `enabled` becomes true only in real mode
-  // while the status says streaming.
-  const { phase, frameVersion, onFrame, onFeedError, onFeedMount } = useCameraStream(
-    realMode && status === 'streaming',
+  const streaming = realMode && status === 'streaming'
+  // Hooks must run unconditionally. Prefer the low-latency WebRTC feed and fall
+  // back to the MJPEG <img> whenever WebRTC is unavailable or fails.
+  const { phase: webrtcPhase, videoRef: webrtcVideoRef } = useWebRtcStream(streaming)
+  const webRtcActive = webrtcPhase === 'connecting' || webrtcPhase === 'live'
+  const { phase: mjpegPhase, frameVersion, onFrame, onFeedError, onFeedMount } = useCameraStream(
+    streaming && !webRtcActive,
   )
+  const phase =
+    webrtcPhase === 'live' ? 'live' : webrtcPhase === 'connecting' ? 'loading' : mjpegPhase
 
   const message =
     cameraUnavailable
@@ -170,18 +176,28 @@ export function CameraView({
       <div className="relative aspect-video w-full overflow-hidden border border-rule bg-[#04070c]">
         {/* Real MJPEG feed (ustreamer mode, status streaming). Decorative: all
             status information lives in the overlay text below. */}
-        {realMode && status === 'streaming' && (
-          <img
-            key={frameVersion}
-            ref={onFeedMount}
-            src={CAMERA_STREAM_PATH}
-            alt=""
-            aria-hidden="true"
-            onLoad={onFrame}
-            onError={onFeedError}
-            className="absolute inset-0 h-full w-full object-cover"
-          />
-        )}
+        {streaming &&
+          (webRtcActive ? (
+            <video
+              ref={webrtcVideoRef}
+              autoPlay
+              playsInline
+              muted
+              aria-hidden="true"
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+          ) : (
+            <img
+              key={frameVersion}
+              ref={onFeedMount}
+              src={CAMERA_STREAM_PATH}
+              alt=""
+              aria-hidden="true"
+              onLoad={onFrame}
+              onError={onFeedError}
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+          ))}
 
         {/* Viewfinder corner marks */}
         <span

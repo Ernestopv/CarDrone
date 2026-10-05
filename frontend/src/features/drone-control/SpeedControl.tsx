@@ -25,6 +25,10 @@ export function SpeedControl({ value, disabled, onChange }: SpeedControlProps) {
         value={value}
         disabled={disabled}
         onChange={(event) => onChange(event.currentTarget.valueAsNumber)}
+        // After a pointer interaction, drop focus so the arrow keys drive the
+        // drone instead of nudging the slider (the reported bug). Keyboard-only
+        // users keep focus — no pointer event — and can still adjust it.
+        onPointerUp={(event) => event.currentTarget.blur()}
         className="mt-2 w-full accent-hud"
       />
       <div className="mt-1 flex justify-between font-mono text-[10px] tracking-[0.14em] text-ink-mute">

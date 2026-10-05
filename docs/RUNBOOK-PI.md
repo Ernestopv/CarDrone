@@ -139,6 +139,16 @@ sudo ./scripts/run-native-pi.sh                # uStreamer + backend + nginx
 sudo ./scripts/run-native-pi.sh --stop         # parar
 ```
 
+El stack nativo **no arranca solo tras un reinicio** (nginx sí, por ser servicio
+del sistema). Para que suba al boot, instala una vez el servicio incluido:
+
+```bash
+sudo ./scripts/run-native-pi.sh --stop         # parar la instancia manual
+sudo cp scripts/cardrone-native.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now cardrone-native.service
+```
+
 - nginx sirve `frontend/dist` y hace de proxy `/api/`→5080 y
   `/camera/`→uStreamer (8080). Genera `camera-mode.json` desde `CAMERA_MODE`.
 - El backend se ejecuta **self-contained linux-arm64** (no requiere .NET 10 en
