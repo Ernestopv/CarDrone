@@ -133,30 +133,30 @@ implementation is owned by later tasks and has not been built or run.
   mechanism and its Pi-runtime/real-hardware evidence; only then may the
   deployment configuration enable the flag.
 
-## D8 — Real PWM speed uses the native (no-Docker) launcher
+## D8 — Real PWM speed in the container via a bind mount outside /sys
 
 - **Status:** accepted and implemented — verified on the target (2026-10-05)
 - **Context:** Task 36 expected `GPIO/PWM REAL` from `docker compose up`. GPIO
   direction works from the non-root container through the GPIO character device
-  (`/dev/gpiochip0`). PWM, however, is exposed only through sysfs
-  (`/sys/class/pwm/pwmchipN/…/period|duty_cycle|enable`), and Docker mounts
-  `/sys` read-only: binding the chip tree — or all of `/sys` — still returns
-  `EROFS`, so no container can write duty/period/enable. Raising privilege does
-  not change a read-only mount.
-- **Decision:** Keep the Docker stack as the default runtime (frontend +
-  backend + camera, with real GPIO direction) and deliver real **variable-speed
-  PWM** through the native launcher `scripts/run-native-pi.sh`, which runs
-  nginx + the same backend + uStreamer directly on the host with root access to
-  sysfs. This is a *hosting* difference, not a source branch: the same backend
-  graph selects the real PWM sink (`RaspberryPwmPlatform`); only the process
-  host changes. The device tree routes the PWM channels to the motor enables
+  (`/dev/gpiochip0`). PWM is exposed only through sysfs
+  (`/sys/class/pwm/pwmchipN/…`). Docker mounts `/sys` read-only, and a bind mount
+  whose *target* is inside `/sys` (e.g. `/sys/class/pwm/pwmchip0`) is also
+  read-only — the earlier "the chip tree cannot be written from a container"
+  conclusion came from exactly that target. Mounting the same host tree at a
+  path **outside** `/sys` (verified `-v /sys/class/pwm/pwmchip0:/pwm`) is
+  writable by the non-root app user (the host files are `a+rw` via the
+  `cardrone-pwm.service`).
+- **Decision:** PWM is available in **both** runtimes. The native launcher
+  (`scripts/run-native-pi.sh`) runs the stack on the host; the Docker Compose Pi
+  overlay (`docker-compose.raspberry.yml`) bind-mounts the PWM chip tree at
+  `/pwm` and points `Raspberry:PWM:ChipPath` there. No `privileged` container
+  and no host bridge. The device tree routes the channels to the motor enables
   (`dtoverlay=pwm-2chan,pin=12,func=4,pin2=13,func2=4`, Alt0).
-- **Consequences:** `docker compose up` stays the one-command story for
-  control/camera/GPIO; speed adds the native command (documented in
-  `docs/RUNBOOK-PI.md`, Paso 10). No `privileged` container, no invented
-  device. Consistent with D2/D3/D5 — deployment/configuration differs, code
-  does not. Costs: two documented ways to run the Pi stack; the native path
-  runs as root for sysfs; the deployment/sudoers setup must be maintained.
-- **Revisit when:** a non-sysfs PWM transport (a host PWM bridge exposing the
-  character device, or a supported least-privilege container mechanism) is
-  proven on the target; the native requirement can then be dropped.
+- **Consequences:** `docker compose up` on the Pi delivers the full stack —
+  frontend, backend (real GPIO + PWM), uStreamer (MJPEG fallback) and go2rtc
+  (WebRTC) — using the same images as the PC. Costs: the chip/channel mapping is
+  operator configuration (`.env` `PWM_CHIP_PATH` / `PWM_CHANNEL_12/13` plus
+  `pwm.env`), and `/pwm` is a container convention chosen to avoid Docker's
+  read-only `/sys`.
+- **Revisit when:** a future Docker/kernel changes `/sys` mount semantics or a
+  cleaner sysfs share appears.

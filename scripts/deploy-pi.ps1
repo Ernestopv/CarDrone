@@ -22,6 +22,11 @@
   Do not rebuild; only copy what is already in backend/publish and frontend/dist.
 .PARAMETER SkipRestart
   Only copy; do not restart the stack on the Pi.
+.PARAMETER Docker
+  Use the Docker Compose path instead of the native one: sync the SOURCE tree to
+  the Pi and rebuild the images (`docker compose build`), then `up -d`. Requires
+  Docker + an operator `.env` on the Pi. -SkipBuild skips the rebuild (only
+  `up -d`); -SkipRestart only syncs the source.
 
 .EXAMPLE
   ./scripts/deploy-pi.ps1 -PiHost 192.168.1.50
@@ -35,7 +40,8 @@ param(
   [string]$PiUser = $(if ($env:CARDRONE_PI_USER) { $env:CARDRONE_PI_USER } else { 'ubuntu' }),
   [string]$PiPath = $(if ($env:CARDRONE_PI_PATH) { $env:CARDRONE_PI_PATH } else { '/home/ubuntu/CarDrone' }),
   [switch]$SkipBuild,
-  [switch]$SkipRestart
+  [switch]$SkipRestart,
+  [switch]$Docker
 )
 
 $ErrorActionPreference = 'Stop'
@@ -52,6 +58,43 @@ function Invoke-Checked {
   Write-Host "== $Label ==" -ForegroundColor Cyan
   & $Command
   if ($LASTEXITCODE -ne 0) { throw "$Label failed (exit $LASTEXITCODE)." }
+}
+
+# --- Docker path (-Docker): sync the SOURCE tree and rebuild the images on the
+#     Pi. The native path below deploys published artifacts instead; the two are
+#     mutually exclusive (same ports on the Pi). ---
+if ($Docker) {
+  Invoke-Checked 'sync source tree to the Pi' {
+    $tar = Join-Path $env:TEMP 'cardrone-src.tgz'
+    if (Test-Path $tar) { Remove-Item -Force $tar }
+    Push-Location $root
+    try {
+      # Heavy/generated dirs are excluded: the containers build from source.
+      & tar -czf $tar --exclude node_modules --exclude dist --exclude publish --exclude bin --exclude obj --exclude .git --exclude pics backend frontend camera docker-compose.yml docker-compose.raspberry.yml .env.raspberry.example
+    } finally { Pop-Location }
+    if ($LASTEXITCODE -ne 0) { throw 'tar failed for the source tree' }
+    scp @sshOpts $tar "${sshTarget}:/tmp/cardrone-src.tgz"
+  }
+  Invoke-Checked 'extract source on the Pi' {
+    # Merges over the repo; operator files (.env, native.env, motor.env, pwm.env)
+    # are not part of the archive and stay untouched.
+    ssh @sshOpts $sshTarget "tar -xzf /tmp/cardrone-src.tgz -C '$PiPath' && rm -f /tmp/cardrone-src.tgz"
+  }
+
+  if (-not $SkipBuild) {
+    Invoke-Checked 'docker compose build on the Pi' {
+      ssh @sshOpts $sshTarget "cd '$PiPath' && docker compose build"
+    }
+  }
+  if (-not $SkipRestart) {
+    Invoke-Checked 'docker compose up -d' {
+      ssh @sshOpts $sshTarget "cd '$PiPath' && docker compose up -d"
+    }
+    Write-Host "Deployed (Docker). UI: http://${PiHost}:8081   API: http://${PiHost}:5080/api/health" -ForegroundColor Green
+  } else {
+    Write-Host "Source synced. Rebuild/up on the Pi: cd $PiPath && docker compose up -d --build" -ForegroundColor Yellow
+  }
+  return
 }
 
 # --- 1) Build (backend self-contained + frontend same-origin) ---

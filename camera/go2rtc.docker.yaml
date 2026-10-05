@@ -1,0 +1,23 @@
+# CarDrone — go2rtc (WebRTC) for the Docker Compose Pi stack.
+#
+# Runs with `network_mode: host`, so go2rtc sees the Pi's real interfaces and
+# auto-advertises the LAN IP as an ICE host candidate (a bridge container only
+# exposes its 172.x address, which the browser cannot reach). The API listens on
+# the host so the frontend nginx (in a bridge container) can proxy the SDP
+# signaling via host.docker.internal.
+#
+# Source: the uStreamer service's MJPEG feed, published on the host loopback
+# (`127.0.0.1:8080`) by the Pi overlay, transcoded to H.264 (libx264; the
+# hardware h264_v4l2m2m encoder rejects a GOP size and freezes the browser).
+# The /camera/ MJPEG passthrough stays as the fallback transport.
+log:
+  level: info
+
+api:
+  listen: "0.0.0.0:1984"
+
+webrtc:
+  listen: ":8555"
+
+streams:
+  cam: exec:ffmpeg -hide_banner -nostdin -fflags nobuffer -flags low_delay -probesize 32 -analyzeduration 0 -f mpjpeg -i http://127.0.0.1:8080/stream -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p -g 30 -b:v 2500k -f rtsp {output}

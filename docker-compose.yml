@@ -9,6 +9,9 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     image: cardrone-backend
+    # Auto-start on boot: Docker restarts containers with this policy when the
+    # daemon comes up (unless they were explicitly stopped).
+    restart: unless-stopped
     ports:
       - "5080:8080"
     environment:
@@ -71,6 +74,7 @@ services:
       args:
         VITE_API_BASE_URL: ""
     image: cardrone-frontend
+    restart: unless-stopped
     ports:
       - "8081:80"
     environment:
@@ -79,9 +83,16 @@ services:
       # /camera/ answered with 404 (never SPA HTML); a Pi deployment sets it
       # by .env (intended value http://ustreamer:8080/stream, wired by Task 34).
       CAMERA_PROXY_TARGET: ${CAMERA_PROXY_TARGET:-}
+      # WebRTC signaling target for the /go2rtc/ location (empty -> 404). A Pi
+      # deployment sets it to http://go2rtc:1984/ (compose DNS).
+      GO2RTC_API_TARGET: ${GO2RTC_API_TARGET:-}
     depends_on:
       backend:
         condition: service_healthy
+    # Resolve host.docker.internal so nginx can reach the host-networked go2rtc
+    # API (WebRTC signaling) on Linux.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     # nginx:1-alpine ships busybox wget, so this probe needs no extra tooling
     # and the frontend Dockerfile stays HEALTHCHECK-free (Task 13 convention).
     healthcheck:
@@ -112,3 +123,20 @@ services:
       CAMERA_RESOLUTION: ${CAMERA_RESOLUTION:-1280x720}
       CAMERA_FPS: ${CAMERA_FPS:-15}
       CAMERA_QUALITY: ${CAMERA_QUALITY:-80}
+  # go2rtc — WebRTC media server for the low-latency browser <video>. Reads the
+  # uStreamer MJPEG feed (compose DNS) and transcodes it to H.264 (the image
+  # ships ffmpeg). Same 'camera' profile as uStreamer: media plane only, never a
+  # control-plane dependency (D4). The browser reaches the published WebRTC port
+  # directly; only the SDP signaling goes through the frontend nginx (/go2rtc/).
+  go2rtc:
+    image: alexxit/go2rtc:latest
+    profiles: ["camera"]
+    restart: unless-stopped
+    # Host networking: WebRTC media must be reachable at the Pi's real LAN IP.
+    # A bridge container only exposes its own 172.x address, which the browser
+    # cannot reach; with host networking go2rtc auto-detects the host interfaces
+    # as ICE host candidates. The API then listens on the host so the frontend
+    # nginx (bridge) can proxy the signaling via host.docker.internal.
+    network_mode: host
+    volumes:
+      - ./camera/go2rtc.docker.yaml:/config/go2rtc.yaml:ro

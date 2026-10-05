@@ -19,18 +19,24 @@ services:
       - "${GPIO_DEVICE:?set GPIO_DEVICE from the target inventory}:/dev/gpiochip0"
     group_add:
       - "${GPIO_GID:?set GPIO_GID from the target inventory}"
-    # Motor direction mapping lives in the operator's ./motor.env (not in the
-    # repo): keys MotorMapping__DirectionMappingVerified and
-    # MotorMapping__Commands__<cmd>__Pin1..Pin4 = HIGH/LOW. Optional file.
+    # PWM speed: bind-mount the PWM sysfs chip tree. The target is /pwm — a
+    # path OUTSIDE /sys, because Docker keeps /sys read-only and a bind mount
+    # whose target is inside /sys is also read-only (verified on the target). At
+    # /pwm the non-root app user CAN write it (the host files are a+rw).
+    # Chip/channel values come from .env (PWM_CHIP_PATH = host source,
+    # PWM_CHANNEL_12/13); the asserted duty envelope from ./pwm.env.
+    volumes:
+      - "${PWM_CHIP_PATH:-/sys/class/pwm/pwmchip0}:/pwm"
+    environment:
+      # Point the real PWM sink at the bind-mounted tree.
+      Raspberry__PWM__ChipPath: /pwm
+    # Operator mappings (never in the repo): motor direction in ./motor.env and
+    # the PWM envelope in ./pwm.env. Optional files.
     env_file:
       - path: ./motor.env
         required: false
-    # NOTE (verified on the target): PWM is a sysfs interface and an
-    # unprivileged container cannot write it — Docker mounts /sys read-only and
-    # a bind mount of the chip tree (or all /sys) still returns EROFS. Speed
-    # control via in-container sysfs is therefore deferred; direction control
-    # works over the GPIO character device. For bench work, enable ENA/ENB from
-    # the host (see docs/RUNBOOK-PI.md) or use the L298N jumpers.
+      - path: ./pwm.env
+        required: false
   # uStreamer camera: mapping APPROVED by the completed target inventory
   # (docs/hardware/raspberry-pi-inventory.md, "Approved Docker mapping"):
   # capture node /dev/video0 (group video, GID 44) for the non-root ustreamer
@@ -40,3 +46,8 @@ services:
       - "/dev/video0:/dev/video0"
     group_add:
       - "44"
+    # Publish the MJPEG endpoint on the host loopback only, so the host-networked
+    # go2rtc service (WebRTC) can read it. Never on the LAN: the media plane
+    # stays behind the frontend nginx /camera/ passthrough.
+    ports:
+      - "127.0.0.1:8080:8080"
