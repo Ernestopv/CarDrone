@@ -287,3 +287,56 @@ describe('createApiDroneService — camera mode (Task 33)', () => {
     await expect(service.getCameraMode()).rejects.toThrow(/missing or invalid/)
   })
 })
+
+describe('createApiDroneService — battery (Task 41)', () => {
+  it('issues GET /api/battery and maps the reading', async () => {
+    const { impl, calls } = createFetchFake(
+      fakeResponse(200, {
+        available: true,
+        voltage: 6.668,
+        percent: 28,
+        state: 'ok',
+        simulated: false,
+        current: -0.7457,
+        power: -4.9723,
+      }),
+    )
+
+    const battery = await createApiDroneService('http://api.test', impl).getBattery()
+
+    expect(calls).toEqual([{ url: 'http://api.test/api/battery', method: 'GET', body: undefined }])
+    expect(battery).toEqual({
+      available: true,
+      voltage: 6.668,
+      percent: 28,
+      state: 'ok',
+      simulated: false,
+      current: -0.7457,
+      power: -4.9723,
+    })
+  })
+
+  it('normalizes a partial wire body to a valid BatteryStatus', async () => {
+    const { impl } = createFetchFake(fakeResponse(200, {}))
+
+    const battery = await createApiDroneService('http://api.test', impl).getBattery()
+
+    expect(battery).toEqual({
+      available: false,
+      voltage: null,
+      percent: null,
+      state: 'unknown',
+      simulated: false,
+      current: null,
+      power: null,
+    })
+  })
+
+  it('propagates HTTP failures as rejections', async () => {
+    const { impl } = createFetchFake(fakeResponse(503, { status: 503, title: 'unavailable' }))
+
+    await expect(createApiDroneService('http://api.test', impl).getBattery()).rejects.toThrow(
+      /503.*unavailable/,
+    )
+  })
+})

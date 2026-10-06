@@ -47,7 +47,7 @@ export function DroneControls({
   onSpeedChange,
 }: DroneControlsProps) {
   return (
-    <Panel title="DRONE CONTROLS">
+    <Panel title="DRONE CONTROLS" className="select-none cursor-default">
       <div className="mx-auto grid w-full max-w-sm grid-cols-3 gap-3">
         {PAD_BUTTONS.map(({ command: buttonCommand, glyph, label, position, variant }) => (
           <DirectionButton

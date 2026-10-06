@@ -1,6 +1,6 @@
 import type { DroneService } from '../services/droneService'
 import type { MockScenario, ScenarioService } from '../services/scenarioService'
-import type { CameraMode, CommandAck, DroneCommand, DroneStatus } from '../types/drone'
+import type { BatteryStatus, CameraMode, CommandAck, DroneCommand, DroneStatus } from '../types/drone'
 import {
   clampSpeed,
   createApiUnavailableStatus,
@@ -38,6 +38,19 @@ export function createMockDroneService(): DroneService & ScenarioService {
     // The simulator is the mock camera deployment: mode is always 'mock'
     // (Task 33; specs/integration/camera-stream.md).
     getCameraMode: async (): Promise<CameraMode> => 'mock',
+
+    // Deterministic simulated battery (Task 41; specs/hardware/battery-monitoring.md).
+    // Explicitly labeled simulated so the UI can never present it as a reading
+    // from the real sensor.
+    getBattery: async (): Promise<BatteryStatus> => ({
+      available: true,
+      voltage: 7.8,
+      percent: 64,
+      state: 'ok',
+      simulated: true,
+      current: -0.45,
+      power: -3.51,
+    }),
 
     connect: async () => {
       status = createConnectingDroneStatus(status)

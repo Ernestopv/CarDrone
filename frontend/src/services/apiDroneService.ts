@@ -1,5 +1,6 @@
 import type { DroneService } from './droneService'
 import type {
+  BatteryStatus,
   CameraMode,
   CameraStatus,
   CommandAck,
@@ -8,7 +9,7 @@ import type {
   DroneStatus,
   ServiceStatus,
 } from '../types/drone'
-import { normalizeDroneStatus } from '../utils/status'
+import { normalizeBatteryStatus, normalizeDroneStatus } from '../utils/status'
 
 // The ONLY module in the frontend that performs HTTP. UI components depend on
 // the DroneService abstraction, never on fetch (specs/integration/frontend-api-service.md).
@@ -136,6 +137,13 @@ export function createApiDroneService(
     },
 
     setSpeed: async (speed: number) => toUiStatus(await request('PUT', '/api/drone/speed', { speed })),
+
+    // Battery is a separate additive control-plane endpoint
+    // (specs/hardware/battery-monitoring.md); the frozen DroneStatus wire is
+    // untouched. A partial/unexpected body is normalized at the seam so the UI
+    // can only ever see a valid BatteryStatus.
+    getBattery: async (): Promise<BatteryStatus> =>
+      normalizeBatteryStatus((await request('GET', '/api/battery')) as BatteryStatus),
 
     // Camera mode is NOT part of the drone wire contract. It is a same-origin
     // capability document served by the frontend nginx (Task 33), so the API

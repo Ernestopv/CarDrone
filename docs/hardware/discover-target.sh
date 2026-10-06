@@ -68,6 +68,17 @@ say "docker engine"
 docker version --format 'client={{.Client.Version}} server={{.Server.Version}}' 2>/dev/null || true
 docker compose version 2>/dev/null || true
 
+say "i2c bus nodes (stat only, never opened)"
+for node in /dev/i2c*; do
+  [ -e "$node" ] && stat -c '%n mode=%a uid=%u gid=%g owner=%U group=%G' "$node" 2>/dev/null || true
+done
+getent group 2>/dev/null | grep -E '^\s*i2c\b' || true
+
+say "ina219 address - NOT VERIFIED by this probe"
+# The probe never opens a device, so the INA219 7-bit address cannot be read
+# here. It is recorded by the operator (e.g. the read-only register probe in
+# specs/hardware/battery-monitoring.md run as root) into the inventory.
+
 say "camera v4l2 nodes (metadata only)"
 for node in /dev/video*; do
   [ -e "$node" ] && stat -c '%n mode=%a uid=%u gid=%g group=%G' "$node" 2>/dev/null || true

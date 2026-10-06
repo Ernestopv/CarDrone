@@ -1,4 +1,6 @@
 import type {
+  BatteryState,
+  BatteryStatus,
   CameraStatus,
   ConnectionStatus,
   DroneCommand,
@@ -160,4 +162,93 @@ export function normalizeDroneStatus(current: DroneStatus): DroneStatus {
 
 export function clampSpeed(speed: number): number {
   return Math.min(100, Math.max(0, Math.round(speed)))
+}
+
+// --- Battery helpers (specs/hardware/battery-monitoring.md) ---
+
+// Shared definition of the honest "no reading yet" battery status.
+export function createInitialBatteryStatus(): BatteryStatus {
+  return {
+    available: false,
+    voltage: null,
+    percent: null,
+    state: 'unknown',
+    simulated: false,
+    current: null,
+    power: null,
+  }
+}
+
+// The service rejected the battery call: sensor unreachable, present as an
+// honest error state (never a fabricated voltage).
+export function createErrorBatteryStatus(): BatteryStatus {
+  return {
+    available: false,
+    voltage: null,
+    percent: null,
+    state: 'error',
+    simulated: false,
+    current: null,
+    power: null,
+  }
+}
+
+// Enforces the battery state model at runtime (same normalization philosophy
+// as normalizeDroneStatus): every consumer sees a valid BatteryStatus. Values
+// that are not what the wire promises (an unexpected body shape, a
+// non-numeric voltage) fail safe to the honest rest state — never a crash.
+const BATTERY_STATES: readonly BatteryState[] = ['unknown', 'ok', 'low', 'critical', 'error']
+
+export function normalizeBatteryStatus(current: BatteryStatus): BatteryStatus {
+  const state = BATTERY_STATES.includes(current.state) ? current.state : 'unknown'
+  return {
+    available: current.available ?? false,
+    voltage: typeof current.voltage === 'number' ? current.voltage : null,
+    percent: typeof current.percent === 'number' ? current.percent : null,
+    state,
+    simulated: current.simulated ?? false,
+    current: typeof current.current === 'number' ? current.current : null,
+    power: typeof current.power === 'number' ? current.power : null,
+  }
+}
+
+export function batteryStateView(state: BatteryState): StatusView {
+  switch (state) {
+    case 'ok':
+      return { label: 'OK', tone: 'success' }
+    case 'low':
+      return { label: 'LOW', tone: 'warning' }
+    case 'critical':
+      return { label: 'CRITICAL', tone: 'danger' }
+    case 'error':
+      return { label: 'SENSOR ERROR', tone: 'danger' }
+    case 'unknown':
+      return { label: 'UNKNOWN', tone: 'muted' }
+  }
+}
+
+export function formatVoltage(voltage: number | null): string {
+  return voltage === null ? '--' : `${voltage.toFixed(2)} V`
+}
+
+export function formatCurrent(current: number | null): string {
+  return current === null ? '--' : `${current.toFixed(2)} A`
+}
+
+export function formatPower(power: number | null): string {
+  return power === null ? '--' : `${power.toFixed(1)} W`
+}
+
+// Charge/discharge polarity CONFIRMED by operator bench observation
+// (specs/hardware/battery-current.md, 2026-10-06): negative shunt current =
+// charging, positive = discharging, for this deployment's wiring. The UI shows
+// it as a hint; the signed value remains the raw measurement, never re-labelled
+// in the wire. Null/zero current has no direction.
+export function batteryDirectionView(current: number | null): StatusView | null {
+  if (current === null || current === 0) {
+    return null
+  }
+  return current < 0
+    ? { label: 'CHARGING', tone: 'success' }
+    : { label: 'DISCHARGING', tone: 'warning' }
 }

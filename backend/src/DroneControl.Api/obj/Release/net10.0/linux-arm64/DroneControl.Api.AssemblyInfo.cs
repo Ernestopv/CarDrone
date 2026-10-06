@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("DroneControl.Api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+de6b0474dc3f4ae826e66cabf47e84d0095faf19")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+876593eb229ab17a61aeb342946e316fcfeaffa0")]
 [assembly: System.Reflection.AssemblyProductAttribute("DroneControl.Api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("DroneControl.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

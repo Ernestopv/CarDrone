@@ -79,7 +79,27 @@ Verifica: `GET /camera-mode.json` → `{"mode":"ustreamer"}`; `GET /camera/`
 devuelve MJPEG (un navegador muestra vídeo); el backend reporta
 `DroneStatus.camera = streaming`; al desconectar la cámara pasa a `error`.
 
-## Paso 6 — Ruta GPIO/PWM sin riesgo (`dry-run`)
+## Paso 6 — Batería (INA219)
+
+Con `BATTERY_MODE=ina219` y los valores de operador del probe I2C
+(`BATTERY_I2C_ADDRESS=0x42`, `BATTERY_FULL_VOLTAGE`, `BATTERY_EMPTY_VOLTAGE`;
+ver el inventario, sección "I2C"):
+
+- **Docker**: el overlay `backend` ya mapea `I2C_DEVICE`/`I2C_GID`. El target
+  tiene `/dev/i2c-1` `crw-rw---- root i2c` (grupo 119), así que `group_add`
+  basta — **no** requiere cambio de udev (a diferencia de `gpiochip0`).
+- **Nativo**: el backend corre como root y accede a `/dev/i2c-1` directamente.
+  Los valores van en `battery.env` (mismo mecanismo que `motor.env`/`pwm.env`).
+- Verifica: `curl localhost:8081/api/battery` devuelve la tensión del pack
+  (p. ej. `{"available":true,"voltage":7.8,"percent":75,"state":"ok",
+  "simulated":false}`); con el bus inaccesible devuelve
+  `{"available":false,"state":"error"}` — nunca un 5xx.
+- Sin `BATTERY_MODE` (o en `mock`) la UI muestra la lectura simulada marcada
+  `SIMULATED` (honestidad: nunca se presenta como sensor real).
+- El % es una **aproximación lineal** voltaje↔carga (no es un fuel gauge);
+  corriente/potencia (shunt) quedan fuera de alcance de la Task 41.
+
+## Paso 7 — Ruta GPIO/PWM sin riesgo (`dry-run`)
 
 `.env` → `HARDWARE_MODE=dry-run` (misma Pi, mismo gráfico, salidas grabadas y
 suprimidas):
@@ -93,7 +113,7 @@ disponibilidad por software, y los comandos/speed producen registros
 `DryRunOperationRecord` sin actuación. Es la prueba de que todo el stack
 GPIO/PWM **de software** funciona en la Pi antes de tocar hardware.
 
-## Paso 7 — Paso a `real` (solo con precondiciones)
+## Paso 8 — Paso a `real` (solo con precondiciones)
 
 Cambia a `HARDWARE_MODE=real` **solo cuando**:
 
@@ -110,7 +130,7 @@ Cambia a `HARDWARE_MODE=real` **solo cuando**:
 Sin esas precondiciones `real` arranca pero GPIO/PWM devuelven `Unavailable`
 (genuino) o abortan con el mensaje de configuración — nunca falla en silencio.
 
-## Paso 8 — Verificación final y registro
+## Paso 9 — Verificación final y registro
 
 - Endpoints de control (connect/command/speed/status, 400/409) sobre el
   backend real.
@@ -118,14 +138,14 @@ Sin esas precondiciones `real` arranca pero GPIO/PWM devuelven `Unavailable`
 - Frecuencia/PWM y dirección de motores en banco con el registro de evidencia
   (no basta "funciona": anota fecha + observación por fila).
 
-## Paso 9 — Resultado honesto
+## Paso 10 — Resultado honesto
 
 Todo lo que no se verificó en este arranque queda marcado `NOT VERIFIED`
 (actuación real, acceso en contenedor a gpiochip/Video, MJPEG real, detalles
 OS/kernel). Rellena estos campos solo con evidencia real; el backlog mantiene
 el Task 36 `BLOCKED` hasta entonces.
 
-## Paso 10 — Alternativa nativa (sin Docker) y despliegue híbrido
+## Paso 11 — Alternativa nativa (sin Docker) y despliegue híbrido
 
 Cuando se necesita escribir `/sys/class/pwm` (velocidad PWM real), el
 contenedor no sirve: Docker monta `/sys` en solo lectura. La alternativa es

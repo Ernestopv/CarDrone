@@ -2617,11 +2617,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "d:\\IADevelopment\\CarDrone\\backend\\tests\\DroneControl.Api.Tests\\DroneControl.Api.Tests.csproj",
+      "projectUniqueName": "D:\\IADevelopment\\CarDrone\\backend\\tests\\DroneControl.Api.Tests\\DroneControl.Api.Tests.csproj",
       "projectName": "DroneControl.Api.Tests",
-      "projectPath": "d:\\IADevelopment\\CarDrone\\backend\\tests\\DroneControl.Api.Tests\\DroneControl.Api.Tests.csproj",
+      "projectPath": "D:\\IADevelopment\\CarDrone\\backend\\tests\\DroneControl.Api.Tests\\DroneControl.Api.Tests.csproj",
       "packagesPath": "C:\\Users\\netho\\.nuget\\packages\\",
-      "outputPath": "d:\\IADevelopment\\CarDrone\\backend\\tests\\DroneControl.Api.Tests\\obj\\",
+      "outputPath": "D:\\IADevelopment\\CarDrone\\backend\\tests\\DroneControl.Api.Tests\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

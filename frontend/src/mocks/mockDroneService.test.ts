@@ -13,6 +13,19 @@ describe('createMockDroneService', () => {
     expect(await service.getCameraMode()).toBe('mock')
   })
 
+  it('reports a deterministic simulated battery (Task 41)', async () => {
+    const service = createMockDroneService()
+    await expect(service.getBattery()).resolves.toEqual({
+      available: true,
+      voltage: 7.8,
+      percent: 64,
+      state: 'ok',
+      simulated: true,
+      current: -0.45,
+      power: -3.51,
+    })
+  })
+
   it('connects to a healthy simulated state', async () => {
     const service = createMockDroneService()
     const status = await service.connect()

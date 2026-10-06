@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { DroneStatus } from '../types/drone'
 import {
+  batteryDirectionView,
   cameraView,
   clampSpeed,
   commandLabel,
@@ -103,6 +104,14 @@ describe('label helpers', () => {
     expect(cameraView('connecting')).toEqual({ label: 'CONNECTING', tone: 'warning' })
     expect(cameraView('streaming')).toEqual({ label: 'STREAMING', tone: 'success' })
     expect(cameraView('error')).toEqual({ label: 'ERROR', tone: 'danger' })
+  })
+
+  it('maps the battery current sign per the operator-confirmed convention', () => {
+    // Negative = charging, positive = discharging (specs/hardware/battery-current.md).
+    expect(batteryDirectionView(-1.1)).toEqual({ label: 'CHARGING', tone: 'success' })
+    expect(batteryDirectionView(0.75)).toEqual({ label: 'DISCHARGING', tone: 'warning' })
+    expect(batteryDirectionView(null)).toBeNull()
+    expect(batteryDirectionView(0)).toBeNull()
   })
 })
 

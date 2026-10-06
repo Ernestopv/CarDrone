@@ -26,6 +26,14 @@ var hardwareMode = builder.Services.AddDroneRuntime(builder.Configuration);
 // probe-backed monitor that feeds DroneStatus.camera.
 var cameraMode = builder.Services.AddCameraRuntime(builder.Configuration);
 
+// Task 41: battery runtime selection happens HERE as well
+// (specs/hardware/battery-monitoring.md). Unset or 'mock' registers the
+// deterministic simulated reading (and never reads the Battery: section);
+// 'ina219' passes the Raspberry platform gate plus a required, validated
+// Battery: configuration, then registers the read-only INA219 monitor behind
+// GET /api/battery. Battery is an independent concern from HARDWARE_MODE.
+var batteryMode = builder.Services.AddBatteryRuntime(builder.Configuration);
+
 // Task 26: safety limits are explicit configuration, validated eagerly before
 // the host can accept requests. These are software deadlines, not electrical
 // or motor limits (specs/hardware/failsafe.md).
@@ -190,6 +198,23 @@ else
     app.Logger.LogInformation(
         "CAMERA_MODE=mock: no camera probe is registered; camera status keeps " +
         "today's semantics (simulator-derived or honest offline).");
+}
+
+// Task 41 battery posture (specs/hardware/battery-monitoring.md): mode
+// selection only. In 'ina219' mode the reading is a measured I2C bus voltage
+// with a linear state-of-charge approximation — never a fuel-gauge claim, and
+// current/power are out of scope.
+if (batteryMode == BatteryMode.Ina219)
+{
+    app.Logger.LogInformation(
+        "BATTERY_MODE=ina219: GET /api/battery reads the INA219 bus voltage over I2C " +
+        "(measured voltage + linear approximation; a failed read reports unavailable).");
+}
+else
+{
+    app.Logger.LogInformation(
+        "BATTERY_MODE=mock: GET /api/battery returns a deterministic simulated reading " +
+        "(simulated=true); no sensor is accessed.");
 }
 
 // Task 16: catch failures before anything else touches the response. The

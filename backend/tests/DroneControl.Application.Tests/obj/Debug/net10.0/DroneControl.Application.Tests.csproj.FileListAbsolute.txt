@@ -101,3 +101,4 @@ D:\IADevelopment\CarDrone\backend\tests\DroneControl.Application.Tests\obj\Debug
 D:\IADevelopment\CarDrone\backend\tests\DroneControl.Application.Tests\obj\Debug\net10.0\DroneControl.Application.Tests.pdb
 D:\IADevelopment\CarDrone\backend\tests\DroneControl.Application.Tests\obj\Debug\net10.0\DroneControl.Application.Tests.genruntimeconfig.cache
 D:\IADevelopment\CarDrone\backend\tests\DroneControl.Application.Tests\obj\Debug\net10.0\ref\DroneControl.Application.Tests.dll
+D:\IADevelopment\CarDrone\backend\tests\DroneControl.Application.Tests\obj\Debug\net10.0\DroneControl.Application.Tests.sourcelink.json

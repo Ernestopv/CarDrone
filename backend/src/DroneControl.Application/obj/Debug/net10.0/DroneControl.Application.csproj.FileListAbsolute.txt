@@ -13,3 +13,4 @@ D:\IADevelopment\CarDrone\backend\src\DroneControl.Application\obj\Debug\net10.0
 D:\IADevelopment\CarDrone\backend\src\DroneControl.Application\obj\Debug\net10.0\refint\DroneControl.Application.dll
 D:\IADevelopment\CarDrone\backend\src\DroneControl.Application\obj\Debug\net10.0\DroneControl.Application.pdb
 D:\IADevelopment\CarDrone\backend\src\DroneControl.Application\obj\Debug\net10.0\ref\DroneControl.Application.dll
+D:\IADevelopment\CarDrone\backend\src\DroneControl.Application\obj\Debug\net10.0\DroneControl.Application.sourcelink.json

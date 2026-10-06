@@ -1765,7 +1765,7 @@ Note: the referenced specification `specs/deployment/raspberry-mode.md` was neve
 Status:
 
 ```text
-NEXT
+PENDING
 ```
 
 Goals:
@@ -1916,3 +1916,74 @@ PENDING
 Goals:
 
 Declare the CarDrone MVP complete.
+
+---
+
+# Phase 10 — Power / Battery Monitoring
+
+## Task 41 — Battery Monitoring (INA219)
+
+Status:
+
+```text
+COMPLETED
+```
+
+Goals:
+
+Monitor the Pi's own battery (2S 18650 Li-ion UPS pack) through an INA219
+over I2C, and surface it in the dashboard.
+
+Requirements:
+
+- Read the pack voltage from the INA219 bus-voltage register over `/dev/i2c-1`.
+- Select `mock` or `ina219` at the composition root via `BATTERY_MODE`
+  (strict config, fail fast, no silent fallback).
+- Expose the reading on the control plane as `GET /api/battery`.
+- Show the voltage, a linear-approximation state of charge and a state
+  (ok/low/critical/error) in a frontend panel.
+- Never claim more than a measured bus voltage; the mock reading is labeled
+  simulated; physical state-of-charge/charger behaviour stays `NOT VERIFIED`.
+- Out of scope: current/power (shunt calibration), charging detection,
+  coulomb counting, changing the frozen `DroneStatus` wire.
+
+Specification:
+
+```text
+specs/hardware/battery-monitoring.md
+```
+
+---
+
+## Task 42 — Battery Current & Power (INA219 shunt)
+
+Status:
+
+```text
+COMPLETED
+```
+
+Goals:
+
+Extend the Task 41 battery monitor to report current (A) and power (W) from
+the INA219 shunt-voltage register and the operator-supplied shunt resistance.
+
+Requirements:
+
+- Read the INA219 shunt-voltage register (0x01, signed, 10 µV LSB) and compute
+  `current = V_shunt / R_shunt` and `power = Vbus × current` in software —
+  keeping the sensor read-only (calibration register stays 0; no writes).
+- Add `Battery:ShuntOhms` (env `BATTERY_SHUNT_OHMS`), a required operator value
+  in `ina219` mode (validated > 0; absent/ invalid aborts startup, D5).
+- Extend `GET /api/battery` and `BatteryStatus` with `current` / `power`
+  (null when unavailable) and show them in the frontend `BatteryPanel`.
+- Keep the mock deterministic and clearly `simulated`.
+- Record the sign convention (charge vs discharge) only from bench observation
+  — never assumed. Coulomb counting and charging-state detection stay out of
+  scope.
+
+Specification:
+
+```text
+specs/hardware/battery-current.md
+```

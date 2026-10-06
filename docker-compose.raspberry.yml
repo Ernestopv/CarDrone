@@ -17,8 +17,14 @@ services:
   backend:
     devices:
       - "${GPIO_DEVICE:?set GPIO_DEVICE from the target inventory}:/dev/gpiochip0"
+      # Battery (Task 41, specs/hardware/battery-monitoring.md): /dev/i2c-1 is
+      # already group-writable on the target (crw-rw---- root i2c, group i2c
+      # GID 119 — inventory "I2C"), so gid 119 in group_add grants the non-root
+      # app user access with NO host udev change. Values are operator evidence.
+      - "${I2C_DEVICE:?set I2C_DEVICE from the target inventory}:/dev/i2c-1"
     group_add:
       - "${GPIO_GID:?set GPIO_GID from the target inventory}"
+      - "${I2C_GID:?set I2C_GID from the target inventory}"
     # PWM speed: bind-mount the PWM sysfs chip tree. The target is /pwm — a
     # path OUTSIDE /sys, because Docker keeps /sys read-only and a bind mount
     # whose target is inside /sys is also read-only (verified on the target). At

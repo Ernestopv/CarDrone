@@ -4,17 +4,20 @@ import { CameraView } from './features/camera/CameraView'
 import { MockScenariosPanel } from './features/connection/MockScenariosPanel'
 import { SystemAlerts } from './features/connection/SystemAlerts'
 import { SystemStatusPanel } from './features/connection/SystemStatusPanel'
+import { BatteryPanel } from './features/battery/BatteryPanel'
 import { DroneControls } from './features/drone-control/DroneControls'
 import { useCommandHold } from './features/drone-control/useCommandHold'
 import { useDroneKeyboardControls } from './features/drone-control/useDroneKeyboardControls'
 import { TelemetryPanel } from './features/telemetry/TelemetryPanel'
 import { useDroneDashboard } from './hooks/useDroneDashboard'
+import { useBatteryMonitor } from './hooks/useBatteryMonitor'
 import { droneService, supportsMockScenarios } from './services/droneService'
 import type { CameraMode } from './types/drone'
 
 export function App() {
   const { status, connectionPending, toggleConnection, sendCommand, changeSpeed, runScenario } =
     useDroneDashboard()
+  const { status: battery } = useBatteryMonitor()
   const connected = status.connection === 'connected'
   // Hold-to-move: while a direction control (button or key) is held the command
   // is re-asserted every COMMAND_REPEAT_MS, so the backend liveness window
@@ -75,6 +78,7 @@ export function App() {
           </div>
           <div className="grid gap-px bg-rule sm:grid-cols-2 lg:grid-cols-1">
             <SystemStatusPanel services={status.services} />
+            <BatteryPanel status={battery} />
             <TelemetryPanel status={status} />
             {/* Mock failure-injection triggers only exist when the simulator
                 drives the UI (specs/integration/frontend-backend.md). */}

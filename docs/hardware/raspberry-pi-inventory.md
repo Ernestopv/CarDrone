@@ -217,12 +217,66 @@ channels must be re-probed and recorded. The repository does not enable it and
 does not invent channel values. Without it, asserting `PwmMapping` under
 `HARDWARE_MODE=real` aborts at startup (fail-fast, D5).
 
+## I2C
+
+Probe evidence (2026-10-06):
+
+```text
+/dev/i2c-1      crw-rw---- 1 root i2c 89, 1      (mode 0660, group i2c)
+host group:     i2c:x:119:
+kernel module:  i2c_bcm2835
+i2cdetect:      not installed (the probe reads registers directly)
+```
+
+Decisions (Task 41 — battery monitoring, `specs/hardware/battery-monitoring.md`):
+
+- The backend reads the INA219 over `/dev/i2c-1`. The device is **already
+  group-writable** (`crw-rw---- root i2c`), so granting the non-root backend
+  container gid **119** via `group_add` gives it access with **no host udev
+  change** (unlike `gpiochip0`, which was root-only). Docker mapping:
+  `devices: ["${I2C_DEVICE}:/dev/i2c-1"]`, `group_add: ["${I2C_GID}"]`.
+- **INA219 address (RECORDED, probe 2026-10-06): `0x42`** — the register probe
+  (read-only, run on the host) observed a device at `0x42` with the INA219
+  default config register `0x399F`, no conversion overflow, and
+  `bus_voltage_raw=0x341A` (**6.668 V** measured). This address is operator
+  evidence and overrides the module-default 0x40. Shunt/calibration registers
+  read 0 (no calibration written) → current/power are not meaningful and are
+  out of scope (Task 41).
+- The voltage window is the operator's pack: 2S 18650 Li-ion, full `8.4` V /
+  empty `6.0` V (`BATTERY_FULL_VOLTAGE` / `BATTERY_EMPTY_VOLTAGE`).
+- The % is a linear voltage approximation; the electrical behaviour of the pack
+  and charger is **not** measured or claimed here.
+
+**Host register read: VERIFIED** on the target (probe, 2026-10-06).
+**Container access + `GET /api/battery`: VERIFIED** on the target (2026-10-06):
+the non-root backend container (supplementary gid 119) reads the INA219 over
+`/dev/i2c-1` with `BATTERY_MODE=ina219`; the endpoint returned
+`{"available":true,"voltage":6.472,"percent":20,"state":"low","simulated":false}`
+(the pack then read ≈6.47 V, i.e. ~20 % — at the configured `Low` threshold;
+the earlier probe read 6.668 V ≈28 %). Direct on `:5080` and through nginx
+`:8081`.
+**Current/power (Task 42, `BATTERY_SHUNT_OHMS=0.1`): VERIFIED** (2026-10-06) —
+the endpoint now returns `current` and `power`; five 1 s samples showed a
+stable signed reading of ≈6.17 V / ≈−1.0…−1.12 A / ≈−6.3…−6.9 W (≈7 %,
+`critical`). **Sign convention CONFIRMED by operator bench observation
+(2026-10-06): negative current = charging, positive = discharging** — so the
+≈−1.1 A reading is a **charge current ≈1.0–1.1 A** (~6.5 W) at a low pack
+voltage. Honest limitation recorded: the INA219's default PGA range (±320 mV
+at R100 = **±3.2 A**) saturated during a load transient (`current:3.2` clip;
+the user's reference notes "counter overflow occurs at 3.2 A").
+Physical state-of-charge accuracy / charger interaction remain
+`NOT VERIFIED`.
+
 ## Pending verification
 
 - enable/expose hardware PWM on the target (or defer speed), then record the
   PWM chip and channel→GPIO mapping (and its non-root write permissions)
 - verify real GPIO actuation from the backend container on the target
   (`HARDWARE_MODE=real`; still `NOT VERIFIED`)
+- read the INA219 from the target (`BATTERY_MODE=ina219`): host register read
+  VERIFIED (probe, 0x42, 6.668 V) and container/endpoint read VERIFIED
+  (2026-10-06, returned ≈6.47 V / 20 % / low); physical state-of-charge/charger
+  behaviour stays `NOT VERIFIED`
 
 ## Repository implementation decisions (repo-side, no hardware needed)
 
@@ -322,6 +376,13 @@ when the operator records the corresponding mapping.
   (Many other `/dev/video*` nodes are the platform ISP/codec stack.)
 - Camera config recommendation: MJPEG 1280x720 @ up to 30 FPS (15 FPS is not a
   native mode — application-level limit to verify).
+- I2C: `/dev/i2c-1` `crw-rw---- root i2c` (mode 0660, group `i2c` GID 119),
+  module `i2c_bcm2835` loaded. The device is already group-writable, so the
+  container mapping `devices: ["/dev/i2c-1:/dev/i2c-1"]` + `group_add: ["119"]`
+  needs no host udev change. INA219 **runtime VERIFIED** (2026-10-06): probe
+  address `0x42`, config `0x399F`, measured 6.668 V on the host; the deployed
+  Docker backend (non-root, gid 119) returned `GET /api/battery` ≈6.47 V /
+  20 % / low.
 
 ## Evidence capture (paste the probe output here)
 
@@ -371,3 +432,6 @@ server=28.1.1
 - Camera stream latency/quality on the target (the MJPEG pipeline itself is
   verified).
 - Full Raspberry Pi OS runtime behavior of the stack on this Ubuntu 22.04 target.
+- INA219 read on the target (address, container access to `/dev/i2c-1`, and a
+  plausible pack voltage from `GET /api/battery`); battery/charger electrical
+  behaviour and the linear state-of-charge approximation (Task 41).

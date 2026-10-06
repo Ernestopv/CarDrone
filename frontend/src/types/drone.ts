@@ -4,6 +4,25 @@ export type ServiceStatus = 'offline' | 'connecting' | 'online' | 'error'
 
 export type CameraStatus = 'offline' | 'connecting' | 'streaming' | 'error'
 
+/** Battery level state (specs/hardware/battery-monitoring.md). */
+export type BatteryState = 'unknown' | 'ok' | 'low' | 'critical' | 'error'
+
+export interface BatteryStatus {
+  /** False when no valid reading exists (sensor unreachable or not polled yet). */
+  available: boolean
+  /** Measured pack/bus voltage in volts; null when unavailable. */
+  voltage: number | null
+  /** Linear-approximation state of charge 0-100; null when unknown. */
+  percent: number | null
+  state: BatteryState
+  /** True only for the simulated (mock) reading; the UI labels it. */
+  simulated: boolean
+  /** Signed current in amps (raw shunt polarity); null when unavailable. */
+  current: number | null
+  /** Signed power in watts (voltage × current); null when unavailable. */
+  power: number | null
+}
+
 /**
  * Runtime camera deployment mode (Task 33; specs/integration/camera-stream.md).
  * Mirrors the deployment's CAMERA_MODE: resolved by the service layer from the

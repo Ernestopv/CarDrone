@@ -37,3 +37,4 @@ D:\IADevelopment\CarDrone\backend\src\DroneControl.Api\obj\Debug\net10.0\refint\
 D:\IADevelopment\CarDrone\backend\src\DroneControl.Api\obj\Debug\net10.0\DroneControl.Api.pdb
 D:\IADevelopment\CarDrone\backend\src\DroneControl.Api\obj\Debug\net10.0\DroneControl.Api.genruntimeconfig.cache
 D:\IADevelopment\CarDrone\backend\src\DroneControl.Api\obj\Debug\net10.0\ref\DroneControl.Api.dll
+D:\IADevelopment\CarDrone\backend\src\DroneControl.Api\obj\Debug\net10.0\DroneControl.Api.sourcelink.json

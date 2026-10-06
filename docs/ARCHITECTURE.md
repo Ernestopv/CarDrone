@@ -37,25 +37,31 @@ ASP.NET Core backend                                         [implemented — Ta
       PWM speed mapping (SpeedController + assertion)        [implemented/dry-run-tested — Task 30; real sysfs sink implemented; Pi chip/channel evidence NOT VERIFIED]
       Camera runtime (CAMERA_MODE + probe status mapping)   [implemented/mock-tested — Task 31; ustreamer needs Pi runtime]
       uStreamer container (profile camera; no host port)    [implemented/mock-tested — Task 32; device mapping & Pi runtime NOT VERIFIED]
+      Battery runtime (BATTERY_MODE + INA219 I2C read; current/power) [implemented; Pi Docker read VERIFIED — Tasks 41/42, 2026-10-06]
 ```
 
 ## Layers and rules
 
 - **Domain** (`DroneControl.Domain`): pure records/enums (`DroneState`,
-  `DroneStatus`, speed 0–100 reject-don't-clamp). Depends on nothing.
+  `DroneStatus`, `BatteryStatus`/`BatteryState`, speed 0–100
+  reject-don't-clamp). Depends on nothing.
 - **Application**: `IDroneService`/`IDroneController` contracts, `DroneService`
   orchestration, `DroneNotConnectedException` + `DroneUnavailableException`
-  (the latter reserved for the hardware phase). Never references hardware.
+  (the latter reserved for the hardware phase), and the read-only
+  `IBatteryMonitor` (Task 41). Never references hardware.
 - **Infrastructure**: hardware-boundary implementations. Today: the simulator,
   the mock GPIO controller, and `RaspberryGpioController` delegating through
   `IRaspberryGpioPlatform`. A concrete Linux GPIO API/device adapter is deferred
   until target runtime integration; GPIO details stay invisible above this layer.
-- **API**: HTTP surface only — five drone endpoints + `/api/health`; input
-  validation at the boundary, ProblemDetails error contract, no logic.
+- **API**: HTTP surface only — five drone endpoints + `/api/health` +
+  `/api/battery` (Task 41, read-only); input validation at the boundary,
+  ProblemDetails error contract, no logic.
 - **Frontend**: React + TypeScript + Vite. UI imports the `DroneService`
   abstraction; `ApiDroneService` (real HTTP, wire→UI mapping) or
   `MockDroneService` selected by `VITE_DRONE_SERVICE` (default `api`);
-  `fetch` exists only inside `ApiDroneService`. Acknowledgements are honest by
+  `fetch` exists only inside `ApiDroneService`. Battery telemetry polls
+  `getBattery()` into a `BatteryPanel` (Task 41; simulated reading is labelled).
+  Acknowledgements are honest by
   construction: `source: 'simulated'`, never hardware (wire carries no source
   field — extension owned by the hardware-phase tasks).
 - **Hard rule everywhere**: no GPIO/pin/PWM/device knowledge above
@@ -67,8 +73,9 @@ ASP.NET Core backend                                         [implemented — Ta
 HARDWARE_MODE = mock (default) | dry-run | real
 CAMERA_MODE   = mock (default) | ustreamer
 SAFETY.ExternalAbruptFailureProtectionVerified = false (default)
-MotorMapping.DirectionMappingVerified = false (default; no MotorMapping section ships)
+# MotorMapping.DirectionMappingVerified = false (default; no MotorMapping section ships)
 PwmMapping.SpeedMappingVerified = false (default; no PwmMapping section ships)
+BATTERY_MODE = mock (default) | ina219
 ```
 
 Selected at the DI composition root only; strict validation, fail-fast —
@@ -99,6 +106,25 @@ with end-to-end real video `NOT VERIFIED` — Task 38). The provider stays inert
 until Task 28. Semantics, decisions D1–D5
 and the prerequisites ledger live in `specs/architecture/runtime-deployment.md`
 and `docs/DECISIONS.md`.
+
+Task 41 adds battery monitoring (`specs/hardware/battery-monitoring.md`):
+`BATTERY_MODE=mock|ina219` selected at the composition root. `mock` returns a
+deterministic simulated reading (`simulated:true`, labelled in the UI);
+`ina219` passes the linux/arm64 gate plus a required, validated `Battery:`
+configuration (I2C device/address, voltage window) and registers the read-only
+INA219 I2C monitor behind `GET /api/battery` (measured bus voltage + linear
+state-of-charge approximation; a failed read returns an honest
+`available:false`/`state:error` status with HTTP 200 — never a 5xx). The
+frontend polls `getBattery()` into a `BatteryPanel`. Task 42 (`specs/hardware/battery-current.md`)
+extends the reading with signed `current`/`power` computed from the shunt
+register and the operator `ShuntOhms` (sensor stays read-only). Battery is an
+independent concern from `HARDWARE_MODE`. Software
+builds/tests verified; **Pi Docker runtime verified** (2026-10-06): INA219 at
+`0x42`, non-root container reads `/dev/i2c-1` (gid 119), `GET /api/battery`
+returned ≈6.17 V / −1.1 A / −6.5 W (≈7 % critical); the ±3.2 A shunt
+saturation is a recorded limitation, and the **sign convention is
+`CONFIRMED`** by operator bench observation (negative = charging, positive =
+discharging).
 
 PC runtime mode is verified end-to-end on a development PC (Task 35,
 `specs/deployment/pc-mode.md`): a fresh copy of the project with no `.env`

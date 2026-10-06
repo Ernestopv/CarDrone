@@ -33,6 +33,11 @@ stop_all() {
       rm -f "$p"
     done
   fi
+  # Lección (2026-10-06): el fichero de PID puede ser obsoleto (reinicio de la
+  # Pi, arranques manuales previos), dejando un backend huérfano que retiene el
+  # 5080 y hace abortar al nuevo con "address already in use". Mata cualquier
+  # instancia restante de DroneControl.Api (el único proceso que usa ese patrón).
+  pkill -f 'DroneControl.Api' 2>/dev/null || true
   if [ -e /etc/nginx/sites-enabled/cardrone ]; then
     rm -f /etc/nginx/sites-enabled/cardrone
     nginx -s reload 2>/dev/null || true
@@ -46,7 +51,7 @@ if [ "${1:-}" = "--stop" ]; then
 fi
 
 # --- 1) Configuración de operador (exportada al proceso .NET) ---
-for f in native.env motor.env pwm.env; do
+for f in native.env motor.env pwm.env battery.env; do
   if [ -f "$f" ]; then
     # shellcheck disable=SC1090
     set -a; . "./$f"; set +a
@@ -55,6 +60,7 @@ done
 
 : "${HARDWARE_MODE:=real}"
 : "${CAMERA_MODE:=ustreamer}"
+: "${BATTERY_MODE:=mock}"
 : "${GPIO_DEVICE:=/dev/gpiochip0}"
 : "${BACKEND_PORT:=5080}"
 : "${USTREAMER_PORT:=8080}"
@@ -79,8 +85,18 @@ if [ -z "${GO2RTC_BIN:-}" ]; then
   [ -n "$GO2RTC_BIN" ] || GO2RTC_BIN="/home/ubuntu/bin/go2rtc"
 fi
 
-export HARDWARE_MODE CAMERA_MODE
+export HARDWARE_MODE CAMERA_MODE BATTERY_MODE
 export Raspberry__GPIO__ChipPath="$GPIO_DEVICE"
+# Battery (Task 41; specs/hardware/battery-monitoring.md): the native backend
+# runs as root, so /dev/i2c-1 needs no group mapping. Empty Battery__* values
+# are ignored in BATTERY_MODE=mock; in 'ina219' the backend aborts loudly
+# (fail-fast, D5), so the launcher only needs to pass the operator values.
+export Battery__I2cBusPath="${I2C_DEVICE:-/dev/i2c-1}"
+export Battery__I2cAddress="${BATTERY_I2C_ADDRESS:-}"
+export Battery__FullVoltage="${BATTERY_FULL_VOLTAGE:-}"
+export Battery__EmptyVoltage="${BATTERY_EMPTY_VOLTAGE:-}"
+export Battery__LowPercent="${BATTERY_LOW_PERCENT:-20}"
+export Battery__CriticalPercent="${BATTERY_CRITICAL_PERCENT:-10}"
 export ASPNETCORE_ENVIRONMENT="${ASPNETCORE_ENVIRONMENT:-Production}"
 export ASPNETCORE_URLS="http://0.0.0.0:$BACKEND_PORT"
 # En nativo el probe apunta al nginx local. En modo 'device' no existe /camera/

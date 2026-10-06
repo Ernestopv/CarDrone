@@ -1,7 +1,7 @@
 import { createMockDroneService } from '../mocks/mockDroneService'
 import { createApiDroneService } from './apiDroneService'
 import type { ScenarioService } from './scenarioService'
-import type { CameraMode, CommandAck, DroneCommand, DroneStatus } from '../types/drone'
+import type { BatteryStatus, CameraMode, CommandAck, DroneCommand, DroneStatus } from '../types/drone'
 
 export interface DroneService {
   getStatus(): Promise<DroneStatus>
@@ -11,6 +11,8 @@ export interface DroneService {
   setSpeed(speed: number): Promise<DroneStatus>
   /** Runtime camera mode (mock | ustreamer); never a wire field (Task 33). */
   getCameraMode(): Promise<CameraMode>
+  /** Current battery reading from GET /api/battery (Task 41). */
+  getBattery(): Promise<BatteryStatus>
 }
 
 const mockService = createMockDroneService()

@@ -44,6 +44,19 @@ services:
       Raspberry__PWM__ChipPath: ${PWM_CHIP_PATH:-}
       Raspberry__PWM__Channels__12: ${PWM_CHANNEL_12:-}
       Raspberry__PWM__Channels__13: ${PWM_CHANNEL_13:-}
+      # Battery runtime selection (Task 41; specs/hardware/battery-monitoring.md).
+      # The default keeps PC behavior identical ('mock' = deterministic simulated
+      # reading, no sensor touched). A Pi deployment sets BATTERY_MODE=ina219,
+      # which requires the operator Battery__* values below; empty values abort
+      # startup loudly (fail-fast, D5) — mock mode never reads them.
+      BATTERY_MODE: ${BATTERY_MODE:-mock}
+      Battery__I2cBusPath: ${I2C_DEVICE:-/dev/i2c-1}
+      Battery__I2cAddress: ${BATTERY_I2C_ADDRESS:-}
+      Battery__FullVoltage: ${BATTERY_FULL_VOLTAGE:-}
+      Battery__EmptyVoltage: ${BATTERY_EMPTY_VOLTAGE:-}
+      Battery__ShuntOhms: ${BATTERY_SHUNT_OHMS:-}
+      Battery__LowPercent: ${BATTERY_LOW_PERCENT:-20}
+      Battery__CriticalPercent: ${BATTERY_CRITICAL_PERCENT:-10}
     # Orchestrator-level health probe — the Dockerfile deliberately carries no
     # HEALTHCHECK (Task 13). The aspnet:10.0 image ships no curl/wget, so the
     # probe performs a raw HTTP GET to /api/health via bash /dev/tcp and

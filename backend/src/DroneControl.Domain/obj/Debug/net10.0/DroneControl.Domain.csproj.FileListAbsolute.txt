@@ -9,3 +9,4 @@ D:\IADevelopment\CarDrone\backend\src\DroneControl.Domain\obj\Debug\net10.0\Dron
 D:\IADevelopment\CarDrone\backend\src\DroneControl.Domain\obj\Debug\net10.0\refint\DroneControl.Domain.dll
 D:\IADevelopment\CarDrone\backend\src\DroneControl.Domain\obj\Debug\net10.0\DroneControl.Domain.pdb
 D:\IADevelopment\CarDrone\backend\src\DroneControl.Domain\obj\Debug\net10.0\ref\DroneControl.Domain.dll
+D:\IADevelopment\CarDrone\backend\src\DroneControl.Domain\obj\Debug\net10.0\DroneControl.Domain.sourcelink.json
